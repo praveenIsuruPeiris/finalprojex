@@ -1,134 +1,179 @@
-"use client"; // Enable client-side features for Flowbite interactivity
+'use client';
 
-import { useEffect } from "react";
-import "flowbite"; // Ensure Flowbite's JavaScript is imported
+import { useEffect, useState } from "react";
+import "flowbite";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  UserButton
+} from "@clerk/nextjs";
+
+// interface NavbarProps {
+//   darkMode: boolean;
+//   toggleDarkMode: () => void;
+// }
+
 
 export default function Navbar() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Load theme from localStorage
   useEffect(() => {
-    // Initialize Flowbite for dropdowns and other components
-    import("flowbite").then((flowbite) => {
-      flowbite.initFlowbite();
-    });
+    const storedTheme = localStorage.getItem("theme");
+    if (storedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      setDarkMode(true);
+    }
   }, []);
 
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+
+    if (newMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
+
   return (
-    <nav className="bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-      <div className="max-w-screen-xl flex items-center justify-between mx-auto p-4">
-        {/* Logo Section */}
-        <a href="/" className="flex items-center space-x-3">
-          <img
-            src="https://flowbite.com/docs/images/logo.svg"
-            className="h-8"
-            alt="Flowbite Logo"
-          />
-          <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">
-            Projex
-          </span>
-        </a>
+    <ClerkProvider>
+      <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3">
+          {/* Logo Section */}
+          <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
+            <img
+              src="https://flowbite.com/docs/images/logo.svg"
+              className="h-8"
+              alt="Flowbite Logo"
+            />
+            <span className="self-center text-2xl font-semibold whitespace-nowrap text-gray-900 dark:text-white">
+              Projex
+            </span>
+          </a>
 
-        {/* Navigation Menu */}
-        <div className="hidden md:flex md:items-center md:space-x-8">
-          <a
-            href="/"
-            className="text-gray-900 hover:text-blue-700 dark:text-white dark:hover:text-blue-500 px-3 py-2"
-          >
-            Home
-          </a>
-          <a
-            href="create-project"
-            className="text-gray-900 hover:text-blue-700 dark:text-white dark:hover:text-blue-500 px-3 py-2"
-          >
-            Create Project
-          </a>
-          <a
-            href="projects-feed"
-            className="text-gray-900 hover:text-blue-700 dark:text-white dark:hover:text-blue-500 px-3 py-2"
-          >
-            Projects
-          </a>
-          <a
-            href="announcements"
-            className="text-gray-900 hover:text-blue-700 dark:text-white dark:hover:text-blue-500 px-3 py-2 flex items-center"
-          >
-            Announcements
-            <svg
-              className="w-5 h-5 ml-1"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M17.133 12.632v-1.8a5.406 5.406 0 0 0-4.154-5.262.955.955 0 0 0 .021-.106V3.1a1 1 0 0 0-2 0v2.364a.955.955 0 0 0 .021.106 5.406 5.406 0 0 0-4.154 5.262v1.8C6.867 15.018 5 15.614 5 16.807 5 17.4 5 18 5.538 18h12.924C19 18 19 17.4 19 16.807c0-1.193-1.867-1.789-1.867-4.175ZM8.823 19a3.453 3.453 0 0 0 6.354 0H8.823Z" />
-            </svg>
-          </a>
-        </div>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex md:items-center md:space-x-4 lg:space-x-6">
+            <div className="flex items-center space-x-4 lg:space-x-6">
+              <a href="/" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition-colors duration-300">
+                Home
+              </a>
+              <a href="create-project" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition-colors duration-300">
+                Create Project
+              </a>
+              <a href="projects-feed" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition-colors duration-300">
+                Projects
+              </a>
+              <a href="announcements" className="relative text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition-colors duration-300 flex items-center">
+                Announcements
+                <span className="absolute -top-1.5 right-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                </span>
+              </a>
+            </div>
 
-        {/* Account Dropdown */}
-        <div className="relative">
-          <button
-            id="dropdownNavbarLink"
-            data-dropdown-toggle="dropdownNavbar"
-            className="flex items-center space-x-2 text-gray-900 hover:text-blue-700 dark:text-white dark:hover:text-blue-500 px-3 py-2"
+            <div className="flex items-center space-x-4 lg:space-x-6 ml-4 border-l border-gray-200 dark:border-gray-700 pl-4">
+              <button 
+                onClick={toggleDarkMode} 
+                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 p-2.5 rounded-lg transition-colors duration-300"
+                aria-label="Toggle dark mode"
+              >
+                {darkMode ? "☀️" : "🌙"}
+              </button>
+              <SignedOut>
+                <SignInButton>
+                  <button className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition-colors duration-300">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
+              <SignedIn>
+                <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors duration-300">
+                  <UserButton appearance={{
+                    elements: {
+                      userButtonAvatarBox: "w-9 h-9",
+                    }
+                  }} />
+                </div>
+              </SignedIn>
+            </div>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button 
+            onClick={() => setIsOpen(!isOpen)} 
+            className="md:hidden text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors duration-300"
+            aria-label="Open navigation menu"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
               <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M5.121 17.804A15.89 15.89 0 0112 15c2.125 0 4.09.52 5.879 1.804M15 12a3 3 0 11-6 0 3 3 0 016 0zm7 3c0 7-10 10-10 10s-10-3-10-10a10 10 0 0120 0z"
+                fillRule="evenodd"
+                d="M3 5h14a1 1 0 110 2H3a1 1 0 010-2zm0 5h14a1 1 0 110 2H3a1 1 0 010-2zm0 5h14a1 1 0 110 2H3a1 1 0 010-2z"
+                clipRule="evenodd"
               />
             </svg>
-            <span>Account</span>
           </button>
-          <div
-            id="dropdownNavbar"
-            className="z-10 hidden font-normal bg-white divide-y divide-gray-100 rounded-lg shadow w-44 dark:bg-gray-700 dark:divide-gray-600"
-          >
-            <ul
-              className="py-2 text-sm text-gray-700 dark:text-gray-400"
-              aria-labelledby="dropdownNavbarLink"
+        </div>
+
+        {/* Mobile Navigation */}
+        <div className={`md:hidden ${isOpen ? "block" : "hidden"} bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700`}>
+          <div className="px-4 py-2 space-y-1">
+            <a href="/" className="block text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+              Home
+            </a>
+            <a href="/create-project" className="block text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+              Create Project
+            </a>
+            <a href="/projects-feed" className="block text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+              Projects
+            </a>
+            <a href="/announcements" className="block text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+              <div className="flex items-center justify-between">
+                <span>Announcements</span>
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+              </div>
+            </a>
+            <button 
+              onClick={toggleDarkMode} 
+              className="w-full text-left text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300"
             >
-              <li>
-                <a
-                  href="#"
-                  className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                  Dashboard
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                  Settings
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                  Earnings
-                </a>
-              </li>
-            </ul>
-            <div className="py-1">
-              <a
-                href="#"
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
-              >
-                Sign out
-              </a>
+              {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <SignedOut>
+                <SignInButton>
+                  <button className="w-full text-left text-gray-700 dark:text-gray-300 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
+              <SignedIn>
+                <div className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-300">
+                  <UserButton appearance={{
+                    elements: {
+                      userButtonAvatarBox: "w-9 h-9",
+                      userButtonPopoverCard: "dark:bg-gray-800"
+                    }
+                  }} />
+                </div>
+              </SignedIn>
             </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </ClerkProvider>
   );
 }

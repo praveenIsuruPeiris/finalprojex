@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const apiUrl ='http://127.0.0.1:8055';
+    const apiUrl =process.env.DIRECTUS_API_URL;
     const apiToken = process.env.DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {

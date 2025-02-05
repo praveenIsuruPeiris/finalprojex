@@ -1,9 +1,10 @@
-'use client'
-
+'use client';
+import { ThemeProvider } from './theme';
 import { Geist, Geist_Mono } from "next/font/google";
 import { useEffect } from "react";
 import "./globals.css";
 import "flowbite";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,15 +16,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-
-
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   useEffect(() => {
-    // Initialize Flowbite if needed
     import("flowbite").then((flowbite) => {
       flowbite.initFlowbite();
     });
@@ -31,10 +29,12 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ClerkProvider>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
