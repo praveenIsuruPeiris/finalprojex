@@ -26,3 +26,49 @@ body {
   border-radius: 4px;
   min-height: 150px;
 }
+
+
+
+/*TYPING*/
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Typing Effect */
+.typing-effect {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: none; /* Remove previous border-right */
+  font-size: 1.5rem;
+  width: 0;
+  animation: typing 6s steps(50, end) forwards; /* Slow typing */
+  position: relative;
+}
+
+/* Cursor that stays at the last character */
+.typing-effect::after {
+  content: "|";
+  position: absolute;
+  right: -5px; /* Position the cursor after text */
+  animation: blink 0.7s infinite;
+}
+/* Mobile & Desktop Links */
+.nav-link {
+  @apply text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2.5 rounded-lg transition;
+}
+
+.mobile-link {
+  @apply block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition;
+}

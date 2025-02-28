@@ -36,7 +36,7 @@ export default function ProjectDetails() {
     const fetchProject = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8055/items/projects/${projectId}?fields=*,images.directus_files_id`
+          `http://crm.lahirupeiris.com/items/projects/${projectId}?fields=*,images.directus_files_id`
         );
         if (!response.ok) throw new Error('Failed to fetch project');
         const data = await response.json();

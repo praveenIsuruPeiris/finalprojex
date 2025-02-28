@@ -2,13 +2,19 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    // ⚠️ Temporarily disable signature check for local development
-    console.log("Skipping Clerk signature verification for testing...");
+    console.log("📩 Incoming Webhook Request...");
 
+    // Parse the request body
     const body = await req.json();
     console.log("Received Webhook Data:", body);
 
-    const { id, email_addresses, first_name, last_name, image_url } = body.data;
+    // Destructure using correct field names
+    const { clerkId, email, username, firstName, lastName, profileImage } = body;
+
+    if (!clerkId || !email) {
+      console.error("❌ Missing required user fields!");
+      return NextResponse.json({ error: "Missing required user fields" }, { status: 400 });
+    }
 
     // Directus API Config
     const apiUrl = process.env.DIRECTUS_API_URL || "http://crm.lahirupeiris.com";
@@ -19,7 +25,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing Directus API configuration" }, { status: 500 });
     }
 
-    // Sync user to Directus
+    console.log("🔄 Syncing user with Directus...");
+
+    // Make API request to Directus to create/update user
     const directusResponse = await fetch(`${apiUrl}/items/directus_users`, {
       method: "POST",
       headers: {
@@ -27,22 +35,25 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        clerk_id: id,
-        email: email_addresses?.[0]?.email_address || "",
-        first_name: first_name || "",
-        last_name: last_name || "",
-        profile_image: image_url || "",
+        clerk_id: clerkId,
+        email: email,
+        username: username || email.split("@")[0], // Fallback if username is missing
+        first_name: firstName || "",
+        last_name: lastName || "",
+        profile_image: profileImage || "",
       }),
     });
 
+    const responseText = await directusResponse.text(); // Capture error text if needed
+
     if (!directusResponse.ok) {
-      const errorText = await directusResponse.text();
-      console.error("❌ Failed to sync user with Directus:", errorText);
-      return NextResponse.json({ error: "Directus user sync failed" }, { status: 500 });
+      console.error("❌ Failed to sync user with Directus:", responseText);
+      return NextResponse.json({ error: responseText }, { status: directusResponse.status });
     }
 
     console.log("✅ User synced successfully with Directus!");
     return NextResponse.json({ success: true }, { status: 200 });
+
   } catch (error) {
     console.error("❌ Internal Server Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
