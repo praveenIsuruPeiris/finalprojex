@@ -8,7 +8,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("Received Webhook Data:", body);
 
-    // Destructure using correct field names
     const { clerkId, email, username, firstName, lastName, profileImage } = body;
 
     if (!clerkId || !email) {
@@ -16,8 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required user fields" }, { status: 400 });
     }
 
-    // Directus API Config
-    const apiUrl = process.env.DIRECTUS_API_URL || "http://crm.lahirupeiris.com";
+    let apiUrl = process.env.DIRECTUS_API_URL || "http://crm.lahirupeiris.com";
     const apiToken = process.env.DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
@@ -25,10 +23,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing Directus API configuration" }, { status: 500 });
     }
 
+    apiUrl = apiUrl.replace(/\/+$/, "");
+
+    console.log("🔍 Checking if user already exists...");
+
+    // Check if the user already exists in Directus
+    const checkUserResponse = await fetch(
+      `${apiUrl}/items/users?filter[clerk_id][_eq]=${clerkId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const existingUserData = await checkUserResponse.json();
+
+    if (existingUserData?.data?.length > 0) {
+      console.log("✅ User already exists. Skipping creation.");
+      return NextResponse.json({ success: true, message: "User already exists." }, { status: 200 });
+    }
+
     console.log("🔄 Syncing user with Directus...");
 
-    // Make API request to Directus to create/update user
-    const directusResponse = await fetch(`${apiUrl}/items/directus_users`, {
+    const directusResponse = await fetch(`${apiUrl}/items/users`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -37,14 +57,14 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         clerk_id: clerkId,
         email: email,
-        username: username || email.split("@")[0], // Fallback if username is missing
+        username: username || email.split("@")[0],
         first_name: firstName || "",
         last_name: lastName || "",
         profile_image: profileImage || "",
       }),
     });
 
-    const responseText = await directusResponse.text(); // Capture error text if needed
+    const responseText = await directusResponse.text();
 
     if (!directusResponse.ok) {
       console.error("❌ Failed to sync user with Directus:", responseText);

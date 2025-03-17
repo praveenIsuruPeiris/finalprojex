@@ -31,6 +31,7 @@ export default function CreateProjectPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
+        credentials: 'include', // Ensures cookies (sessions) are sent
       });
 
       if (!response.ok) throw new Error('Failed to create project.');

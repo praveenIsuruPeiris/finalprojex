@@ -31,7 +31,7 @@ export default function ProjectsFeed() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('http://crm.lahirupeiris.com/items/projects?fields=*,images.directus_files_id');
+        const response = await fetch('https://crm.lahirupeiris.com/items/projects?fields=*,images.directus_files_id');
         if (!response.ok) throw new Error('Failed to fetch projects');
   
         const data = await response.json();
