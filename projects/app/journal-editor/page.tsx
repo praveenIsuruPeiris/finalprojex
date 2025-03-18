@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import Navbar from '@/app/components/Navbar';
@@ -26,7 +26,7 @@ import {
 } from '@phosphor-icons/react';
 
 const API_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL || 'https://crm.lahirupeiris.com';
-const API_TOKEN = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN|| '';
+const API_TOKEN = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN || '';
 const COLLECTION_NAME = 'project_journal';
 
 const editorStyles = `
@@ -64,7 +64,7 @@ interface DirectusUser {
   clerk_id?: string;
 }
 
-export default function JournalEditorPage() {
+function JournalEditorContent() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const journalId = searchParams.get('journalId');
@@ -120,11 +120,9 @@ export default function JournalEditorPage() {
   // Inject editor styles
   useEffect(() => {
     if (!editor) return;
-
     const styleEl = document.createElement('style');
     styleEl.innerHTML = editorStyles;
     document.head.appendChild(styleEl);
-
     return () => {
       document.head.removeChild(styleEl);
     };
@@ -133,29 +131,21 @@ export default function JournalEditorPage() {
   // Fetch journal content if editing
   useEffect(() => {
     if (!journalId || !editor) return;
-
     const fetchJournal = async () => {
       try {
         setErrorMsg(null);
         setSuccessMsg(null);
-
-        const res = await fetch(
-          `${API_URL}/items/${COLLECTION_NAME}/${journalId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${API_TOKEN}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
+        const res = await fetch(`${API_URL}/items/${COLLECTION_NAME}/${journalId}`, {
+          headers: {
+            Authorization: `Bearer ${API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+        });
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
-
         const { data } = await res.json();
         if (!data) return;
-
         setTitle(data.title || '');
         editor.commands.setContent(data.content || '<p></p>');
       } catch (err) {
@@ -163,7 +153,6 @@ export default function JournalEditorPage() {
         setErrorMsg('Failed to load journal data');
       }
     };
-
     fetchJournal();
   }, [journalId, editor]);
 
@@ -175,11 +164,9 @@ export default function JournalEditorPage() {
         API_URL,
         API_TOKEN
       );
-
       if (errors.length > 0) {
         throw new Error(errors.join(', '));
       }
-
       const fileId = fileIds[0];
       setInsertedFileIds((prev) => [...prev, fileId]);
       return fileId;
@@ -195,7 +182,6 @@ export default function JournalEditorPage() {
     setIsSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-
     try {
       if (!journalId) {
         if (!projectId.trim()) {
@@ -205,22 +191,15 @@ export default function JournalEditorPage() {
           throw new Error('User authentication failed - please refresh the page');
         }
       }
-
       const journalPayload = {
         title,
         content: editor.getHTML(),
-        ...(!journalId && {
-          project_id: projectId,
-          user_id: directusUserId,
-        }),
+        ...(!journalId && { project_id: projectId, user_id: directusUserId }),
       };
-
       const endpoint = journalId
         ? `${API_URL}/items/${COLLECTION_NAME}/${journalId}`
         : `${API_URL}/items/${COLLECTION_NAME}`;
-
       const method = journalId ? 'PATCH' : 'POST';
-
       const journalRes = await fetch(endpoint, {
         method,
         headers: {
@@ -229,22 +208,16 @@ export default function JournalEditorPage() {
         },
         body: JSON.stringify(journalPayload),
       });
-
       if (!journalRes.ok) {
         const errorBody = await journalRes.text();
         console.error('Directus error:', errorBody);
-        throw new Error(
-          journalId ? 'Failed to update journal' : 'Failed to create journal'
-        );
+        throw new Error(journalId ? 'Failed to update journal' : 'Failed to create journal');
       }
-
       const { data } = await journalRes.json();
       const newJournalId = data?.id ?? journalId;
-
       if (!newJournalId) {
         throw new Error('No journal ID received from server');
       }
-
       if (insertedFileIds.length > 0) {
         await Promise.all(
           insertedFileIds.map((fileId) =>
@@ -254,15 +227,11 @@ export default function JournalEditorPage() {
                 Authorization: `Bearer ${API_TOKEN}`,
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({
-                journal_id: newJournalId,
-                file_id: fileId,
-              }),
+              body: JSON.stringify({ journal_id: newJournalId, file_id: fileId }),
             })
           )
         );
       }
-
       if (journalId) {
         setSuccessMsg('Journal updated successfully!');
         editor.commands.insertContent('<p><em>Journal updated successfully!</em></p>');
@@ -271,13 +240,10 @@ export default function JournalEditorPage() {
         editor.commands.setContent('<p>Journal created successfully!</p>');
         setTitle('');
       }
-
       setInsertedFileIds([]);
     } catch (err) {
       console.error('Error saving journal:', err);
-      setErrorMsg(
-        err instanceof Error ? err.message : 'An unexpected error occurred'
-      );
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsSaving(false);
     }
@@ -290,7 +256,6 @@ export default function JournalEditorPage() {
         <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
           {journalId ? 'Edit Journal' : 'Create Journal'}
         </h1>
-
         <div className="space-y-2">
           <input
             type="text"
@@ -301,9 +266,7 @@ export default function JournalEditorPage() {
           />
           <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-10 rounded-full" />
         </div>
-
         <EditorToolbar editor={editor} handleImageUpload={handleImageUpload} />
-
         <div className="relative group">
           <EditorContent
             editor={editor}
@@ -311,7 +274,6 @@ export default function JournalEditorPage() {
           />
           <div className="absolute inset-0 pointer-events-none border-2 border-transparent group-focus-within:border-blue-500 rounded-xl transition-all" />
         </div>
-
         <div className="flex justify-end items-center gap-4">
           {successMsg && (
             <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm">
@@ -323,7 +285,6 @@ export default function JournalEditorPage() {
               {errorMsg}
             </div>
           )}
-
           <Button
             onClick={handleSave}
             disabled={isSaving}
@@ -339,6 +300,14 @@ export default function JournalEditorPage() {
   );
 }
 
+export default function JournalEditorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <JournalEditorContent />
+    </Suspense>
+  );
+}
+
 interface EditorToolbarProps {
   editor: any;
   handleImageUpload: (file: File) => Promise<string | null>;
@@ -349,11 +318,9 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-
     input.onchange = async (evt) => {
       const file = (evt.target as HTMLInputElement).files?.[0];
       if (!file) return;
-
       const fileId = await handleImageUpload(file);
       if (fileId) {
         const url = `${API_URL}/assets/${fileId}`;
@@ -375,7 +342,6 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
         <TextH size={20} weight="bold" className="w-5 h-5" />
         <span className="text-xs">2</span>
       </ToolbarButton>
-
       <ToolbarButton
         title="Heading 3"
         active={editor.isActive('heading', { level: 3 })}
@@ -384,9 +350,7 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
         <TextH size={20} weight="bold" className="w-5 h-5" />
         <span className="text-xs">3</span>
       </ToolbarButton>
-
       <Divider />
-
       <ToolbarButton
         title="Bold"
         active={editor.isActive('bold')}
@@ -394,7 +358,6 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <TextB size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <ToolbarButton
         title="Italic"
         active={editor.isActive('italic')}
@@ -402,9 +365,7 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <TextItalic size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <Divider />
-
       <ToolbarButton
         title="Bullet List"
         active={editor.isActive('bulletList')}
@@ -412,7 +373,6 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <ListBullets size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <ToolbarButton
         title="Numbered List"
         active={editor.isActive('orderedList')}
@@ -420,9 +380,7 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <ListNumbers size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <Divider />
-
       <ToolbarButton
         title="Align Left"
         active={editor.isActive({ textAlign: 'left' })}
@@ -430,7 +388,6 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <AlignLeft size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <ToolbarButton
         title="Align Center"
         active={editor.isActive({ textAlign: 'center' })}
@@ -438,13 +395,10 @@ function EditorToolbar({ editor, handleImageUpload }: EditorToolbarProps) {
       >
         <AlignCenterHorizontal size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <Divider />
-
       <ToolbarButton title="Insert Image" onClick={handleImageInsert}>
         <ImageSquare size={20} className="w-5 h-5" />
       </ToolbarButton>
-
       <ToolbarButton
         title="Insert Link"
         active={editor.isActive('link')}
