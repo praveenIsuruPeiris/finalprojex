@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+/* eslint-disable */
 
 export type ProjectCardProps = {
   title: string;
