@@ -1,20 +1,25 @@
-// middleware.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, NextFetchEvent } from 'next/server';
 import { clerkMiddleware } from '@clerk/nextjs/server';
 
-export default function middleware(req: NextRequest) {
-  // Apply Clerk authentication middleware
-  const response = clerkMiddleware()(req);
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  // Apply Clerk authentication middleware with both the request and event.
+  const response = clerkMiddleware()(req, event);
 
-  // Check if the response is a promise and handle accordingly
+  // Check if response is null or undefined and return a default response if so.
+  if (!response) {
+    return NextResponse.next();
+  }
+
+  // If the response is a promise, handle it asynchronously.
   if (response instanceof Promise) {
     return response.then((res) => {
+      if (!res) return NextResponse.next();
       res.headers.set('Content-Length', '10485760'); // 10MB
       return res;
     });
   }
 
-  // Set custom headers (e.g., Content-Length limit)
+  // Set the header directly if response is not a promise.
   response.headers.set('Content-Length', '10485760'); // 10MB
   return response;
 }
