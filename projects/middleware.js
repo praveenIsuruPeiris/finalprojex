@@ -1,22 +1,15 @@
 import { NextResponse } from 'next/server';
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-
-const isProtectedRoute = createRouteMatcher([
-  '/create-project'
-]);
+import { clerkMiddleware } from '@clerk/nextjs/edge-middleware'; // Note the edge-specific import
 
 export default clerkMiddleware((auth, req) => {
-  if (isProtectedRoute(req)) {
+  if (req.nextUrl.pathname === '/create-project') {
     auth().protect();
   }
-
+  
   const response = NextResponse.next();
   response.headers.set('Content-Length', '10485760');
   return response;
 }, {
-  ignoredRoutes: [
-    (req) => !req.url.includes('/create-project')
-  ],
   debug: process.env.NODE_ENV === 'development'
 });
 
