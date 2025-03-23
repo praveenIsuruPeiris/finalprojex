@@ -1,13 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   experimental: {
     esmExternals: 'loose',
     serverActions: {
-      bodySizeLimit: '10mb', // Increase the limit to 10MB
+      bodySizeLimit: '10mb',
     },
-    
   },
   webpack: (config) => {
     config.externals.push({
@@ -15,6 +13,7 @@ const nextConfig: NextConfig = {
       '@clerk/nextjs': 'commonjs @clerk/nextjs'
     });
     return config;
+  }
 };
-}
+
 export default nextConfig;
