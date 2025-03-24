@@ -1,21 +1,30 @@
-import { NextResponse } from 'next/server';
-import { clerkMiddleware } from '@clerk/nextjs/edge-middleware'; // Note the edge-specific import
+// middleware.ts
 
-export default clerkMiddleware((auth, req) => {
-  if (req.nextUrl.pathname === '/create-project') {
-    auth().protect();
+import { clerkMiddleware } from '@clerk/nextjs/server';
+
+export default function middleware(req) {
+  // Apply Clerk authentication middleware
+  const response = clerkMiddleware()(req);
+
+  // Check if the response is a promise and handle accordingly
+  if (response instanceof Promise) {
+    return response.then((res) => {
+      res.headers.set('Content-Length', '10485760'); // 10MB
+      return res;
+    });
   }
-  
-  const response = NextResponse.next();
-  response.headers.set('Content-Length', '10485760');
-  return response;
-}, {
-  debug: process.env.NODE_ENV === 'development'
-});
 
+  // Set custom headers (e.g., Content-Length limit)
+  response.headers.set('Content-Length', '10485760'); // 10MB
+  return response;
+}
+
+// Matcher configuration to ensure Clerk middleware protects the correct routes
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Exclude sign-in, sign-up, and static files from Clerk protection
+    '/((?!sign-in|sign-up|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
     '/(api|trpc)(.*)',
   ],
 };
