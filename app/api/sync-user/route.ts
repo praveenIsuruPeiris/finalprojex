@@ -59,7 +59,12 @@ export async function POST(req: Request) {
 
     apiUrl = apiUrl.replace(/\/+$/, "");
 
-    console.log("🔍 Checking if user already exists...");
+    console.log("🔍 Checking if user already exists...", "NODE_ENV:", process.env.NODE_ENV);
+    console.log("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:", process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+    console.log("CLERK_SECRET_KEY:", process.env.CLERK_SECRET_KEY);
+    console.log("NEXT_PUBLIC_DIRECTUS_API_URL:", process.env.NEXT_PUBLIC_DIRECTUS_API_URL);
+    console.log("NEXT_PUBLIC_DIRECTUS_API_TOKEN:", process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN);
+    console.log("CLERK_WEBHOOK_SECRET:", process.env.CLERK_WEBHOOK_SECRET);
 
     // Check if the user already exists in Directus
     const checkUserResponse = await fetch(
@@ -76,7 +81,12 @@ export async function POST(req: Request) {
     const existingUserData = await checkUserResponse.json();
 
     if (existingUserData?.data?.length > 0) {
-      console.log("✅ User already exists. Skipping creation.");
+      console.log("✅ User already exists. Skipping creation.", "NODE_ENV:", process.env.NODE_ENV);
+      console.log("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:", process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+      console.log("CLERK_SECRET_KEY:", process.env.CLERK_SECRET_KEY);
+      console.log("NEXT_PUBLIC_DIRECTUS_API_URL:", process.env.NEXT_PUBLIC_DIRECTUS_API_URL);
+      console.log("NEXT_PUBLIC_DIRECTUS_API_TOKEN:", process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN);
+      console.log("CLERK_WEBHOOK_SECRET:", process.env.CLERK_WEBHOOK_SECRET);
       return NextResponse.json({ success: true, message: "User already exists." }, { status: 200 });
     }
 
@@ -105,7 +115,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: responseText }, { status: directusResponse.status });
     }
 
-    console.log("✅ User synced successfully with Directus!");
+    console.log("✅ User synced successfully with Directus!", "NODE_ENV:", process.env.NODE_ENV);
+    console.log("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:", process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+    console.log("CLERK_SECRET_KEY:", process.env.CLERK_SECRET_KEY);
+    console.log("NEXT_PUBLIC_DIRECTUS_API_URL:", process.env.NEXT_PUBLIC_DIRECTUS_API_URL);
+    console.log("NEXT_PUBLIC_DIRECTUS_API_TOKEN:", process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN);
+    console.log("CLERK_WEBHOOK_SECRET:", process.env.CLERK_WEBHOOK_SECRET);
     return NextResponse.json({ success: true }, { status: 200 });
 
   } catch (error) {
@@ -113,3 +128,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:", process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+console.log("CLERK_SECRET_KEY:", process.env.CLERK_SECRET_KEY);
+console.log("NEXT_PUBLIC_DIRECTUS_API_URL:", process.env.NEXT_PUBLIC_DIRECTUS_API_URL);
+console.log("NEXT_PUBLIC_DIRECTUS_API_TOKEN:", process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN);
+console.log("CLERK_WEBHOOK_SECRET:", process.env.CLERK_WEBHOOK_SECRET);

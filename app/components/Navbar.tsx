@@ -128,16 +128,34 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-2">
-            <a href="/" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Home</a>
-            <a href="/create-project" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Create Project</a>
-            <a href="/projects-feed" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Projects</a>
-            <a href="/announcements" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Announcements</a>
-            <button onClick={toggleDarkMode} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
-              {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
-            </button>
-          </div>
-        )}
+  <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-2">
+    <a href="/" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Home</a>
+    <a href="/create-project" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Create Project</a>
+    <a href="/projects-feed" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Projects</a>
+    <a href="/announcements" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Announcements</a>
+    <button onClick={toggleDarkMode} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
+      {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+    </button>
+    
+    {/* Authentication */}
+    <div className="flex justify-between items-center px-4 py-3">
+      <SignedOut>
+        <SignInButton>
+          <button className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+            Sign In
+          </button>
+        </SignInButton>
+      </SignedOut>
+
+      <SignedIn>
+        <div className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
+          <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+        </div>
+      </SignedIn>
+    </div>
+  </div>
+)}
+
       </nav>
     </ClerkProvider>
   );
