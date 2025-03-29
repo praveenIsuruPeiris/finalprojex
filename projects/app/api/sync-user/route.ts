@@ -1,12 +1,46 @@
 import { NextResponse } from "next/server";
+import * as crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
+    // Read the raw request body
+    const rawBody = await req.text();
+    const body = JSON.parse(rawBody);
     console.log("📩 Incoming Webhook Request...");
-
-    // Parse the request body
-    const body = await req.json();
     console.log("Received Webhook Data:", body);
+
+    // Check if in Dev Mode
+    const isDevMode = process.env.NODE_ENV === "development";
+
+    if (!isDevMode) {
+      // Extract Clerk signature from headers
+      const clerkSignature = req.headers.get("clerk-signature");
+      if (!clerkSignature) {
+        console.error("❌ Missing Clerk signature");
+        return NextResponse.json({ error: "Missing Clerk signature" }, { status: 400 });
+      }
+
+      // Verify the signature
+      const secret = process.env.CLERK_WEBHOOK_SECRET;
+      if (!secret) {
+        console.error("❌ Missing Clerk webhook secret");
+        return NextResponse.json({ error: "Missing Clerk webhook secret" }, { status: 500 });
+      }
+
+      const timestamp = clerkSignature.split(",")[0].split("=")[1];
+      const signature = clerkSignature.split(",")[1].split("=")[1];
+
+      const hmac = crypto.createHmac("sha256", secret);
+      hmac.update(`${timestamp}.${rawBody}`);
+      const expectedSignature = hmac.digest("hex");
+
+      if (signature !== expectedSignature) {
+        console.error("❌ Invalid Clerk signature");
+        return NextResponse.json({ error: "Invalid Clerk signature" }, { status: 400 });
+      }
+    } else {
+      console.log("⚠️ Skipping Clerk signature verification for development...");
+    }
 
     const { clerkId, email, username, firstName, lastName, profileImage } = body;
 
