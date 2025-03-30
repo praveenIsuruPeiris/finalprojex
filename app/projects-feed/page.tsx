@@ -31,28 +31,41 @@ export default function ProjectsFeed() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('https://crm.lahirupeiris.com/items/projects?fields=*,images.directus_files_id');
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects?fields=*,images.directus_files_id`
+        );
         if (!response.ok) throw new Error('Failed to fetch projects');
-  
+        
         const data = await response.json();
+        console.log('Raw projects data:', data); // Debug log
+
         const transformedProjects = data.data.map((project: any) => ({
           id: project.id,
           title: project.title,
           description: project.description,
           status: project.status,
           location: project.location,
-          createdAt: project.date_created || null,
-          images: Array.isArray(project.images)
-            ? project.images
-                .map((item: any) => (item.directus_files_id ? { id: item.directus_files_id } : null))
-                .filter((img: any) => img && img.id)
-            : [],
+          createdAt: project.date_created,
+          images: (project.images || [])
+            .map((item: any) => {
+              // Handle both direct file ID and nested structure
+              if (typeof item === 'string') {
+                return { id: item };
+              }
+              if (item.directus_files_id) {
+                return { id: item.directus_files_id.id || item.directus_files_id };
+              }
+              return null;
+            })
+            .filter((img: any) => img !== null)
         }));
-  
+
+        console.log('Transformed projects:', transformedProjects); // Debug log
         setProjects(transformedProjects);
         setSearchResults(transformedProjects);
       } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred');
+        console.error('Error fetching projects:', err);
+        setError(err.message || 'Failed to load projects');
       } finally {
         setLoading(false);
       }

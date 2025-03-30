@@ -11,6 +11,7 @@ import {
   UserButton,
   useUser
 } from "@clerk/nextjs";
+import Link from "next/link";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,7 +71,7 @@ export default function Navbar() {
       <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3">
           {/* Logo */}
-          <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
+          <Link href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
             <img
               src="https://flowbite.com/docs/images/logo.svg"
               className="h-8"
@@ -79,26 +80,26 @@ export default function Navbar() {
             <span className="text-2xl font-semibold text-gray-900 dark:text-white">
               Projex
             </span>
-          </a>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-6">
-            <a href="/" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+            <Link href="/" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
               Home
-            </a>
-            <a href="/create-project" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+            </Link>
+            <Link href="/create-project" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
               Create Project
-            </a>
-            <a href="/projects-feed" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+            </Link>
+            <Link href="/projects-feed" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
               Projects
-            </a>
-            <a href="/announcements" className="relative text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition flex items-center">
+            </Link>
+            <Link href="/announcements" className="relative text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition flex items-center">
               Announcements
               <span className="absolute -top-1.5 right-2.5 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
-            </a>
+            </Link>
             <button onClick={toggleDarkMode} className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition">
               {darkMode ? "☀️" : "🌙"}
             </button>
@@ -112,8 +113,26 @@ export default function Navbar() {
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
-                <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+              <div className="flex items-center space-x-4">
+                <Link href="/profile/edit" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+                  Edit Profile
+                </Link>
+                <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
+                  <UserButton 
+                    appearance={{ 
+                      elements: { userButtonAvatarBox: "w-9 h-9" },
+                      variables: {
+                        colorPrimary: "rgb(59 130 246)",
+                        colorBackground: "rgb(255 255 255)",
+                        colorInputBackground: "rgb(255 255 255)",
+                        colorInputText: "rgb(17 24 39)",
+                      }
+                    }}
+                    afterSignOutUrl="/"
+                    userProfileMode="navigation"
+                    userProfileUrl="/profile/edit"
+                  />
+                </div>
               </div>
             </SignedIn>
           </div>
@@ -128,34 +147,51 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         {isOpen && (
-  <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-2">
-    <a href="/" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Home</a>
-    <a href="/create-project" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Create Project</a>
-    <a href="/projects-feed" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Projects</a>
-    <a href="/announcements" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Announcements</a>
-    <button onClick={toggleDarkMode} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
-      {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
-    </button>
-    
-    {/* Authentication */}
-    <div className="flex justify-between items-center px-4 py-3">
-      <SignedOut>
-        <SignInButton>
-          <button className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
-            Sign In
-          </button>
-        </SignInButton>
-      </SignedOut>
+          <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-2">
+            <Link href="/" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Home</Link>
+            <Link href="/create-project" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Create Project</Link>
+            <Link href="/projects-feed" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Projects</Link>
+            <Link href="/announcements" className="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">Announcements</Link>
+            <button onClick={toggleDarkMode} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
+              {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+            
+            {/* Authentication */}
+            <div className="flex justify-between items-center px-4 py-3">
+              <SignedOut>
+                <SignInButton>
+                  <button className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
 
-      <SignedIn>
-        <div className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
-          <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
-        </div>
-      </SignedIn>
-    </div>
-  </div>
-)}
-
+              <SignedIn>
+                <div className="flex items-center space-x-4">
+                  <Link href="/profile/edit" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
+                    Edit Profile
+                  </Link>
+                  <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
+                    <UserButton 
+                      appearance={{ 
+                        elements: { userButtonAvatarBox: "w-9 h-9" },
+                        variables: {
+                          colorPrimary: "rgb(59 130 246)",
+                          colorBackground: "rgb(255 255 255)",
+                          colorInputBackground: "rgb(255 255 255)",
+                          colorInputText: "rgb(17 24 39)",
+                        }
+                      }}
+                      afterSignOutUrl="/"
+                      userProfileMode="navigation"
+                      userProfileUrl="/profile/edit"
+                    />
+                  </div>
+                </div>
+              </SignedIn>
+            </div>
+          </div>
+        )}
       </nav>
     </ClerkProvider>
   );

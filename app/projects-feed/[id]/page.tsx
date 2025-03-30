@@ -71,17 +71,28 @@ export default function ProjectDetails() {
         if (!response.ok) throw new Error('Failed to fetch project');
         
         const data = await response.json();
+        console.log('Raw project data:', data); // Debug log
+
         const transformedProject = {
           ...data.data,
           images: (data.data.images || [])
-            .map((item: any) => item.directus_files_id?.id ? { id: item.directus_files_id.id } : null)
-            .filter((img: any) => img)
+            .map((item: any) => {
+              // Handle both direct file ID and nested structure
+              if (typeof item === 'string') {
+                return { id: item };
+              }
+              if (item.directus_files_id) {
+                return { id: item.directus_files_id.id || item.directus_files_id };
+              }
+              return null;
+            })
+            .filter((img: any) => img !== null)
         };
 
+        console.log('Transformed project:', transformedProject); // Debug log
         setProject(transformedProject);
       } catch (err: any) {
-
-        
+        console.error('Error fetching project:', err);
         setError(err.message || 'Failed to load project');
       } finally {
         setLoading(false);
@@ -170,57 +181,50 @@ export default function ProjectDetails() {
       <Navbar />
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-{/* Image carousel */}
-{/* Image carousel */}
-<div className="relative aspect-video bg-gray-200 dark:bg-gray-700">
-  {project?.images?.length > 0 && project.images[currentIndex] && (() => {
-    const mainImageUrl = `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/assets/${project.images[currentIndex].id}?key=preview`;
-    console.log("Generated main image URL:", mainImageUrl);
-    return (
-      <>
-        <img
-          src={mainImageUrl}
-          onError={(e) => {
-            const fallbackUrl = `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/assets/${project.images[currentIndex].id}?key=thumb`;
-            console.error("Image failed to load. Falling back to:", fallbackUrl);
-            (e.target as HTMLImageElement).src = fallbackUrl;
-          }}
-          alt={project.title}
-          className="w-full h-full object-cover"
-        />
-        {project.images.length > 1 && (
-          <>
-            <button
-              onClick={() =>
-                setCurrentIndex((prev) =>
-                  prev === 0 ? project.images.length - 1 : prev - 1
-                )
-              }
-              className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-gray-900/60 text-white p-2 rounded-full hover:bg-gray-900"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={() =>
-                setCurrentIndex((prev) =>
-                  prev === project.images.length - 1 ? 0 : prev + 1
-                )
-              }
-              className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-900/60 text-white p-2 rounded-full hover:bg-gray-900"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </>
-        )}
-      </>
-    );
-  })()}
-</div>
-
+          {/* Image carousel */}
+          <div className="relative aspect-video bg-gray-200 dark:bg-gray-700">
+            {project?.images?.length > 0 && project.images[currentIndex] && (() => {
+              const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL || 'https://crm.lahirupeiris.com';
+              const mainImageUrl = `${directusUrl}/assets/${project.images[currentIndex].id}`;
+              console.log("Generated main image URL:", mainImageUrl);
+              return (
+                <>
+                  <img
+                    src={mainImageUrl}
+                    alt={project.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('Image failed to load:', mainImageUrl);
+                      // Try without the /assets/ path
+                      const alternativeUrl = `${directusUrl}/${project.images[currentIndex].id}`;
+                      console.log('Trying alternative URL:', alternativeUrl);
+                      (e.target as HTMLImageElement).src = alternativeUrl;
+                    }}
+                  />
+                  {project.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={handlePrevImage}
+                        className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-gray-900/60 text-white p-2 rounded-full hover:bg-gray-900"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={handleNextImage}
+                        className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-900/60 text-white p-2 rounded-full hover:bg-gray-900"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
 
           {/* Project details */}
           <div className="px-6 py-4">

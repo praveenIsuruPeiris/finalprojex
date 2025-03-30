@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useUser, SignIn } from '@clerk/nextjs';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProjectForm from '../components/ProjectForm';
 import dynamic from 'next/dynamic';
+import Notification from '../components/Notification';
 
-// Dynamic import for Lottie with no SSR
+// Dynamic import for Lottie (no SSR)
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 
 export default function CreateProjectPage() {
@@ -17,22 +18,39 @@ export default function CreateProjectPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
-
-
   const [animationData, setAnimationData] = useState(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     fetch('https://lottie.host/c70fcd40-dfb5-4cc5-a7a8-8a65df1a840f/FRg3oQ54HX.json')
       .then(res => res.json())
       .then(setAnimationData);
 
-    
     // Detect dark mode
     setDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 
+  // Redirect to sign-in page if the user is not signed in
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in'); // Redirects to the sign-in page
+    }
+  }, [isLoaded, isSignedIn, router]);
+
   if (!isLoaded) return <p className="text-center text-gray-800 dark:text-gray-300">Loading...</p>;
-  if (!isSignedIn) return null;
+  if (!isSignedIn) return null; // Prevent rendering while redirecting
+
+  // While redirecting, show a fallback UI
+  if (!isSignedIn) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <p className="text-gray-700 dark:text-gray-300 mb-4">Redirecting to sign-in...</p>
+          <SignIn />
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (formData: any) => {
     setLoading(true);
@@ -47,10 +65,21 @@ export default function CreateProjectPage() {
       });
 
       if (!response.ok) throw new Error('Failed to create project.');
-      alert('Project created successfully!');
-      router.push('/');
+      
+      setNotification({
+        message: 'Project created successfully!',
+        type: 'success'
+      });
+      
+      // Redirect after a short delay to show the success message
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      setNotification({
+        message: err instanceof Error ? err.message : 'An unexpected error occurred.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -59,6 +88,14 @@ export default function CreateProjectPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <Navbar />
+
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
 
       <main className="flex-grow py-10">
         <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 p-6 shadow-md rounded-lg">
@@ -69,11 +106,11 @@ export default function CreateProjectPage() {
                 Create a New Project
               </h1>
               <p className="text-lg text-gray-600 dark:text-gray-300">
-                Bring your ideas to life with our intuitive project creation tools
+                Bring your ideas to life with our intuitive project creation tools.
               </p>
             </div>
-            
-            {/* Lottie Animation - Right side on desktop, top on mobile */}
+
+            {/* Lottie Animation */}
             <div className="w-full md:w-1/2 flex justify-center">
               {animationData ? (
                 <Lottie 

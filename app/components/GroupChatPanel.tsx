@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from 'flowbite-react';
 import AddUserToProject from './AddUserToProject';
 import debounce from 'lodash/debounce';
+import Link from 'next/link';
 
 interface ChatMessage {
   id: string;
