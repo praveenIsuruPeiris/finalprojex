@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 
 import Navbar from '@/app/components/Navbar';
 import Footer from '@/app/components/Footer';
+import Pagination from '@/app/components/Pagination';
 
 // Types
 type Journal = {
@@ -28,13 +29,15 @@ export default function ProjectJournalPage() {
 
   const [directusUserId, setDirectusUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [journals, setJournals] = useState<Journal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL || 'https://crm.lahirupeiris.com';
   const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN || '';
+  const ITEMS_PER_PAGE = 5;
 
   /**
    * 1) Fetch the current user's Directus user ID
@@ -98,31 +101,54 @@ export default function ProjectJournalPage() {
   }, [projectId, directusUserId, apiUrl, apiToken]);
 
   /**
-   * 3) Fetch the project's journals
+   * 3) Fetch the project's journals with pagination
    */
   useEffect(() => {
     if (!projectId) return;
 
     const fetchJournals = async () => {
       try {
-        // GET /items/project_journal?filter[project_id][_eq]=<pId>&sort=-date_created
+        setLoading(true);
+        // GET /items/project_journal?filter[project_id][_eq]=<pId>&sort=-date_created&page=<page>&limit=<limit>
         const res = await fetch(
-          `${apiUrl}/items/project_journal?filter[project_id][_eq]=${projectId}&sort=-date_created`,
-          { headers: { Authorization: `Bearer ${apiToken}` } }
+          `${apiUrl}/items/project_journal?filter[project_id][_eq]=${projectId}&sort=-date_created&page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+          { 
+            headers: { 
+              Authorization: `Bearer ${apiToken}`,
+              'Content-Type': 'application/json'
+            } 
+          }
         );
+        
         if (!res.ok) {
           throw new Error('Failed to fetch project journals');
         }
+        
         const data = await res.json();
-        setJournals(data?.data || []);
+        console.log('API Response:', data); // Debug log
+
+        // Handle the response data
+        const journals = data.data || [];
+        const total = data.meta?.total || journals.length;
+        const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+        // If current page is greater than total pages and there are pages, go to last page
+        if (currentPage > totalPages && totalPages > 0) {
+          setCurrentPage(totalPages);
+          return;
+        }
+
+        setJournals(journals);
+        setTotalPages(totalPages);
       } catch (err: any) {
+        console.error('Error fetching journals:', err); // Debug log
         setError(err.message || 'Error fetching journals');
       } finally {
         setLoading(false);
       }
     };
     fetchJournals();
-  }, [projectId, apiUrl, apiToken]);
+  }, [projectId, currentPage, apiUrl, apiToken]);
 
   if (loading) {
     return (
@@ -177,6 +203,19 @@ export default function ProjectJournalPage() {
                 userRole={userRole}
               />
             ))}
+            {/* Only show pagination if there are multiple pages */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  startResult={(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                  endResult={Math.min(currentPage * ITEMS_PER_PAGE, journals.length)}
+                  totalResults={journals.length}
+                />
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -220,9 +259,19 @@ function JournalEntry({
 
   return (
     <article className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">
-        {journal.title}
-      </h2>
+      <div className="flex justify-between items-start mb-4">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          {journal.title}
+        </h2>
+        {/* Edit button if user is admin */}
+        {userRole === 'admin' && (
+          <Link href={`/journal-editor?journalId=${journal.id}`}>
+            <button className="text-sm px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border border-blue-200 dark:border-blue-800">
+              Edit
+            </button>
+          </Link>
+        )}
+      </div>
 
       {journal.date_created && (
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -256,17 +305,6 @@ function JournalEntry({
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Edit button if user is admin */}
-      {userRole === 'admin' && (
-        <div className="mt-4">
-          <Link href={`/journal-editor?journalId=${journal.id}`}>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-              Edit Journal
-            </button>
-          </Link>
         </div>
       )}
     </article>

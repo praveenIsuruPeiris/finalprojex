@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuth } from '@clerk/nextjs/server';
 
+type ProjectLike = {
+  id: string;
+  project_id: string;
+  user_id: string;
+  type: string;
+};
+
 export async function POST(request: Request) {
   const { userId } = getAuth(request as any);
   const { commentId, reactionType } = await request.json();

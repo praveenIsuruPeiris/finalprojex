@@ -140,8 +140,6 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Automatically add the creator as an admin to the project
     console.log('🔄 Adding user to the project as admin...');
 
-    console.log('🔄 Adding user to the project as admin...');
-
     const projectUserResponse = await fetch(`${apiUrl}/items/Projects_Users`, {
       method: 'POST',
       headers: {
@@ -152,19 +150,16 @@ export async function POST(req: NextRequest): Promise<Response> {
         project_id: projectId,
         user_id: directusUserId,
         role: 'admin',
+        subscribed: true
       }),
     });
     
-    console.log('Response Status:', projectUserResponse.status);
-    console.log('Response Headers:', projectUserResponse.headers);
-    console.log('Response Body:', await projectUserResponse.text());
-    
     if (!projectUserResponse.ok) {
-      console.error('❌ Failed to add user as admin.');
+      const errorText = await projectUserResponse.text();
+      console.error('❌ Failed to add user as admin:', errorText);
       return NextResponse.json({ error: 'Failed to assign project admin' }, { status: projectUserResponse.status });
     }
     
-
     console.log('✅ User assigned as project admin successfully!');
     return NextResponse.json({ success: true, projectId }, { status: 200 });
 

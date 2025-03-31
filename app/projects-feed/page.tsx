@@ -31,21 +31,17 @@ export default function ProjectsFeed() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects?fields=*,images.directus_files_id`
-        );
+        const response = await fetch('https://crm.lahirupeiris.com/items/projects?fields=*,images.directus_files_id');
         if (!response.ok) throw new Error('Failed to fetch projects');
-        
+  
         const data = await response.json();
-        console.log('Raw projects data:', data); // Debug log
-
         const transformedProjects = data.data.map((project: any) => ({
           id: project.id,
           title: project.title,
           description: project.description,
           status: project.status,
           location: project.location,
-          createdAt: project.date_created,
+          createdAt: project.date_created || null,
           images: (project.images || [])
             .map((item: any) => {
               // Handle both direct file ID and nested structure
@@ -59,13 +55,13 @@ export default function ProjectsFeed() {
             })
             .filter((img: any) => img !== null)
         }));
-
+  
         console.log('Transformed projects:', transformedProjects); // Debug log
         setProjects(transformedProjects);
         setSearchResults(transformedProjects);
       } catch (err: any) {
-        console.error('Error fetching projects:', err);
-        setError(err.message || 'Failed to load projects');
+        console.error('Error fetching projects:', err); // Debug log
+        setError(err.message || 'An unexpected error occurred');
       } finally {
         setLoading(false);
       }
@@ -131,9 +127,7 @@ export default function ProjectsFeed() {
         {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {paginatedResults.map((project) => (
-            <a key={project.id} href={`/projects-feed/${project.id}`} className="no-underline">
-              <ProjectCard {...project} />
-            </a>
+            <ProjectCard key={project.id} {...project} id={String(project.id)} />
           ))}
         </div>
 

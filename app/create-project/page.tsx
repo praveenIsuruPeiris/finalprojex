@@ -8,6 +8,7 @@ import Footer from '../components/Footer';
 import ProjectForm from '../components/ProjectForm';
 import dynamic from 'next/dynamic';
 import Notification from '../components/Notification';
+import GoogleMapsWrapper from '../components/GoogleMapsWrapper';
 
 // Dynamic import for Lottie (no SSR)
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
@@ -33,24 +34,12 @@ export default function CreateProjectPage() {
   // Redirect to sign-in page if the user is not signed in
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      router.push('/sign-in'); // Redirects to the sign-in page
+      router.push('/sign-in');
     }
   }, [isLoaded, isSignedIn, router]);
 
   if (!isLoaded) return <p className="text-center text-gray-800 dark:text-gray-300">Loading...</p>;
-  if (!isSignedIn) return null; // Prevent rendering while redirecting
-
-  // While redirecting, show a fallback UI
-  if (!isSignedIn) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="text-center">
-          <p className="text-gray-700 dark:text-gray-300 mb-4">Redirecting to sign-in...</p>
-          <SignIn />
-        </div>
-      </div>
-    );
-  }
+  if (!isSignedIn) return null;
 
   const handleSubmit = async (formData: any) => {
     setLoading(true);
@@ -86,9 +75,43 @@ export default function CreateProjectPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
+      
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header Section with Animation */}
+        <div className="flex flex-col md:flex-row items-center justify-between mb-12">
+          <div className="text-center md:text-left mb-8 md:mb-0">
+            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white sm:text-5xl md:text-6xl">
+              Create New Project
+            </h1>
+            <p className="mt-3 text-base text-gray-500 dark:text-gray-400 sm:text-lg md:mt-5 md:text-xl">
+              Bring your ideas to life with our intuitive project creation tools
+            </p>
+          </div>
+          
+          {/* Animation Container */}
+          <div className="w-48 h-48 md:w-64 md:h-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+            {animationData && (
+              <Lottie
+                animationData={animationData}
+                loop={true}
+                className="w-full h-full"
+              />
+            )}
+          </div>
+        </div>
 
+        {/* Form Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+          <GoogleMapsWrapper>
+            <ProjectForm onSubmit={handleSubmit} loading={loading} darkMode={darkMode} />
+          </GoogleMapsWrapper>
+        </div>
+      </div>
+
+      <Footer />
       {notification && (
         <Notification
           message={notification.message}
@@ -96,49 +119,6 @@ export default function CreateProjectPage() {
           onClose={() => setNotification(null)}
         />
       )}
-
-      <main className="flex-grow py-10">
-        <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 p-6 shadow-md rounded-lg">
-          {/* Hero Section with Lottie */}
-          <div className="flex flex-col md:flex-row items-center gap-8 mb-8">
-            <div className="w-full md:w-1/2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                Create a New Project
-              </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-300">
-                Bring your ideas to life with our intuitive project creation tools.
-              </p>
-            </div>
-
-            {/* Lottie Animation */}
-            <div className="w-full md:w-1/2 flex justify-center">
-              {animationData ? (
-                <Lottie 
-                  animationData={animationData} 
-                  loop={true}
-                  autoplay={true}
-                  className="w-64 h-64 md:w-80 md:h-80"
-                  aria-label="Project creation animation"
-                />
-              ) : (
-                <div className="w-64 h-64 md:w-80 md:h-80 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
-              )}
-            </div>
-          </div>
-
-          {/* Form Section */}
-          <div className="mt-8">
-            {error && (
-              <p className="text-red-500 dark:text-red-400 mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                {error}
-              </p>
-            )}
-            <ProjectForm onSubmit={handleSubmit} loading={loading} darkMode={darkMode} />
-          </div>
-        </div>
-      </main>
-
-      <Footer />
     </div>
   );
 }

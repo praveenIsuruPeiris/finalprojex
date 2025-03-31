@@ -19,6 +19,13 @@ type Project = {
   images: { id: string }[];
 };
 
+type ProjectLike = {
+  id: string;
+  project_id: string;
+  user_id: string;
+  type: string;
+};
+
 const fetchCurrentUserId = async (clerkId: string): Promise<string | null> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
@@ -58,6 +65,10 @@ export default function ProjectDetails() {
   const [showChat, setShowChat] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [likes, setLikes] = useState<ProjectLike[]>([]);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
 
   // Fetch project details
   useEffect(() => {
@@ -71,13 +82,12 @@ export default function ProjectDetails() {
         if (!response.ok) throw new Error('Failed to fetch project');
         
         const data = await response.json();
-        console.log('Raw project data:', data); // Debug log
+        console.log('Raw project data:', data);
 
         const transformedProject = {
           ...data.data,
           images: (data.data.images || [])
             .map((item: any) => {
-              // Handle both direct file ID and nested structure
               if (typeof item === 'string') {
                 return { id: item };
               }
@@ -89,7 +99,7 @@ export default function ProjectDetails() {
             .filter((img: any) => img !== null)
         };
 
-        console.log('Transformed project:', transformedProject); // Debug log
+        console.log('Transformed project:', transformedProject);
         setProject(transformedProject);
       } catch (err: any) {
         console.error('Error fetching project:', err);
@@ -101,6 +111,115 @@ export default function ProjectDetails() {
 
     fetchProject();
   }, [projectId]);
+
+  // Fetch likes
+  useEffect(() => {
+    const fetchLikes = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+        const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
+
+        if (!apiUrl || !apiToken) {
+          throw new Error('Directus API configuration missing');
+        }
+
+        const response = await fetch(
+          `${apiUrl}/items/project_likes?filter[project_id][_eq]=${projectId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${apiToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        if (!response.ok) throw new Error('Failed to fetch likes');
+        
+        const data = await response.json();
+        setLikes(data.data);
+        setLikeCount(data.data.length);
+
+        // Check if current user has liked the project
+        if (clerkId) {
+          const currentUserId = await fetchCurrentUserId(clerkId);
+          if (currentUserId) {
+            const userLike = data.data.find((like: ProjectLike) => like.user_id === currentUserId);
+            setIsLiked(!!userLike);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching likes:', err);
+      }
+    };
+
+    fetchLikes();
+  }, [projectId, clerkId]);
+
+  // Handle like/unlike
+  const handleLike = async () => {
+    if (!clerkId || !projectId) return;
+
+    try {
+      const currentUserId = await fetchCurrentUserId(clerkId);
+      if (!currentUserId) return;
+
+      const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+      const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
+
+      if (!apiUrl || !apiToken) {
+        throw new Error('Directus API configuration missing');
+      }
+
+      if (isLiked) {
+        // Unlike
+        const userLike = likes.find(like => like.user_id === currentUserId);
+        if (userLike) {
+          const response = await fetch(
+            `${apiUrl}/items/project_likes/${userLike.id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${apiToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (response.ok) {
+            setLikes(likes.filter(like => like.id !== userLike.id));
+            setLikeCount(prev => prev - 1);
+            setIsLiked(false);
+          }
+        }
+      } else {
+        // Like
+        const response = await fetch(
+          `${apiUrl}/items/project_likes`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              project_id: projectId,
+              user_id: currentUserId,
+              type: 'heart'
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const newLike = await response.json();
+          setLikes([...likes, newLike.data]);
+          setLikeCount(prev => prev + 1);
+          setIsLiked(true);
+        }
+      }
+    } catch (err) {
+      console.error('Error handling like:', err);
+    }
+  };
 
   // Fetch user role
   useEffect(() => {
@@ -276,6 +395,33 @@ export default function ProjectDetails() {
                     {showChat ? 'Close Group Chat' : 'Open Group Chat'}
                   </button>
                 )}
+
+                {/* Like Button - Moved to the right */}
+                <div className="ml-auto">
+                  <button
+                    onClick={handleLike}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      isLiked
+                        ? 'bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-100'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <svg
+                      className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`}
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      fill={isLiked ? 'currentColor' : 'none'}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                    <span>{likeCount}</span>
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -3,32 +3,53 @@
 // app/api/get-all-users/route.ts
 
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { NextRequest } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
-    const token = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
-
-    if (!directusUrl || !token) {
-      return NextResponse.json({ error: 'Directus API configuration missing' }, { status: 500 });
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all users from Directus
-    const res = await fetch(`${directusUrl}/items/users`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${process.env.DIRECTUS_API_URL}/items/users?fields=id,username,first_name,last_name`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store'
+      }
+    );
 
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: res.status });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Directus API error:', errorText);
+      return NextResponse.json(
+        { message: `Failed to fetch users: ${errorText}` },
+        { status: response.status }
+      );
     }
 
-    const data = await res.json();
-    // Assuming Directus returns an object with a "data" key containing the users array.
+    const data = await response.json();
+    
+    // Ensure we have the correct data structure
+    if (!data || !Array.isArray(data.data)) {
+      console.error('Invalid data structure from Directus:', data);
+      return NextResponse.json(
+        { message: 'Invalid response format from server' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ users: data.data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error('Error in get-all-users:', error);
+    return NextResponse.json(
+      { message: 'Failed to fetch users' },
+      { status: 500 }
+    );
   }
 }

@@ -13,6 +13,7 @@ import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { uploadFiles } from '../utils/directus.utils';
 import { Button } from 'flowbite-react';
+import { useTheme } from '../theme';
 import {
   TextB,
   TextItalic,
@@ -30,12 +31,29 @@ const API_TOKEN = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN || '';
 const COLLECTION_NAME = 'project_journal';
 
 const editorStyles = `
+  .ProseMirror {
+    min-height: 300px;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background-color: white;
+    color: #000000;
+  }
+  .dark .ProseMirror {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #e5e7eb;
+  }
   .ProseMirror h2 {
     font-size: 1.875rem !important;
     font-weight: bold !important;
     margin-top: 1.5rem !important;
     margin-bottom: 0.75rem !important;
     line-height: 1.2 !important;
+    color: #000000;
+  }
+  .dark .ProseMirror h2 {
+    color: #f3f4f6;
   }
   .ProseMirror h3 {
     font-size: 1.5rem !important;
@@ -43,6 +61,10 @@ const editorStyles = `
     margin-top: 1.25rem !important;
     margin-bottom: 0.5rem !important;
     line-height: 1.3 !important;
+    color: #000000;
+  }
+  .dark .ProseMirror h3 {
+    color: #f3f4f6;
   }
   .ProseMirror ul {
     list-style-type: disc !important;
@@ -56,6 +78,53 @@ const editorStyles = `
   }
   .ProseMirror li {
     margin: 0.25rem 0 !important;
+    color: #000000;
+  }
+  .dark .ProseMirror li {
+    color: #e5e7eb;
+  }
+  .ProseMirror a {
+    color: #2563eb;
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+  .dark .ProseMirror a {
+    color: #60a5fa;
+  }
+  .ProseMirror a:hover {
+    color: #1d4ed8;
+  }
+  .dark .ProseMirror a:hover {
+    color: #93c5fd;
+  }
+  .ProseMirror p {
+    margin: 0.75rem 0 !important;
+    color: #000000;
+  }
+  .dark .ProseMirror p {
+    color: #e5e7eb;
+  }
+  .ProseMirror img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+  }
+  .dark .ProseMirror img {
+    filter: brightness(0.9);
+  }
+  .ProseMirror em {
+    color: #000000;
+  }
+  .dark .ProseMirror em {
+    color: #e5e7eb;
+  }
+  .ProseMirror strong {
+    color: #000000;
+    font-weight: 600;
+  }
+  .dark .ProseMirror strong {
+    color: #f3f4f6;
   }
 `;
 
@@ -66,6 +135,7 @@ interface DirectusUser {
 
 function JournalEditorContent() {
   const { user } = useUser();
+  const { darkMode } = useTheme();
   const searchParams = useSearchParams();
   const journalId = searchParams.get('journalId');
   const projectId = searchParams.get('projectId') ?? '';
@@ -88,7 +158,7 @@ function JournalEditorContent() {
     content: '<p>Start writing your project journal...</p>',
     editorProps: {
       attributes: {
-        class: 'prose prose-lg dark:prose-invert focus:outline-none max-w-none',
+        class: `prose prose-lg focus:outline-none max-w-none ${darkMode ? 'dark:prose-invert' : ''}`,
       },
     },
   });
@@ -178,7 +248,16 @@ function JournalEditorContent() {
   };
 
   const handleSave = async () => {
-    if (!editor || !title.trim()) return;
+    if (!editor) {
+      setErrorMsg('Editor is not initialized. Please refresh the page.');
+      return;
+    }
+    
+    if (!title.trim()) {
+      setErrorMsg('Please enter a title for your journal entry');
+      return;
+    }
+
     setIsSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -191,9 +270,15 @@ function JournalEditorContent() {
           throw new Error('User authentication failed - please refresh the page');
         }
       }
+
+      const content = editor.getHTML();
+      if (content === '<p>Start writing your project journal...</p>' || content === '<p></p>') {
+        throw new Error('Please add some content to your journal entry');
+      }
+
       const journalPayload = {
-        title,
-        content: editor.getHTML(),
+        title: title.trim(),
+        content,
         ...(!journalId && { project_id: projectId, user_id: directusUserId }),
       };
       const endpoint = journalId
@@ -250,17 +335,21 @@ function JournalEditorContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       <Navbar />
       <main className="flex-grow max-w-4xl mx-auto p-6 space-y-8 w-full">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+        <h1 className={`text-3xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-black'}`}>
           {journalId ? 'Edit Journal' : 'Create Journal'}
         </h1>
         <div className="space-y-2">
           <input
             type="text"
             placeholder="Journal Title"
-            className="text-4xl font-bold w-full bg-transparent outline-none border-b-2 border-transparent focus:border-blue-500 transition-all placeholder-gray-400 dark:placeholder-gray-600"
+            className={`text-4xl font-bold w-full bg-transparent outline-none border-b-2 border-transparent focus:border-blue-500 transition-all ${
+              darkMode 
+                ? 'text-white placeholder-gray-400' 
+                : 'text-black placeholder-gray-500'
+            }`}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -270,18 +359,30 @@ function JournalEditorContent() {
         <div className="relative group">
           <EditorContent
             editor={editor}
-            className="min-h-[500px] p-6 rounded-xl border-2 border-gray-100 dark:border-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all hover:border-gray-200 dark:hover:border-gray-700"
+            className={`min-h-[500px] p-6 rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+              darkMode 
+                ? 'bg-gray-800 border-gray-700 hover:border-gray-600' 
+                : 'bg-white border-gray-200 hover:border-gray-300'
+            }`}
           />
           <div className="absolute inset-0 pointer-events-none border-2 border-transparent group-focus-within:border-blue-500 rounded-xl transition-all" />
         </div>
         <div className="flex justify-end items-center gap-4">
           {successMsg && (
-            <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm">
+            <div className={`px-4 py-2 rounded-lg text-sm ${
+              darkMode 
+                ? 'bg-green-900/30 text-green-200' 
+                : 'bg-green-100 text-green-800'
+            }`}>
               {successMsg}
             </div>
           )}
           {errorMsg && (
-            <div className="bg-red-100 text-red-800 px-4 py-2 rounded-lg text-sm">
+            <div className={`px-4 py-2 rounded-lg text-sm ${
+              darkMode 
+                ? 'bg-red-900/30 text-red-200' 
+                : 'bg-red-100 text-red-800'
+            }`}>
               {errorMsg}
             </div>
           )}
@@ -289,7 +390,7 @@ function JournalEditorContent() {
             onClick={handleSave}
             disabled={isSaving}
             gradientDuoTone="purpleToBlue"
-            className="shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
+            className="shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all text-white"
           >
             {isSaving ? 'Saving...' : 'Publish Journal'}
           </Button>

@@ -114,9 +114,24 @@ export default function Navbar() {
             </SignedOut>
             <SignedIn>
               <div className="flex items-center space-x-4">
-                <Link href="/profile/edit" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
-                  Edit Profile
-                </Link>
+                <div className="relative group">
+                  <button className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition flex items-center">
+                    My Account
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute top-full right-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 hidden group-hover:block z-50">
+                    <SignedIn>
+                      <Link href="/profile/projects" className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        My Projects
+                      </Link>
+                      <Link href="/profile/manage-projects" className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Manage Projects
+                      </Link>
+                    </SignedIn>
+                  </div>
+                </div>
                 <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
                   <UserButton 
                     appearance={{ 
@@ -130,7 +145,7 @@ export default function Navbar() {
                     }}
                     afterSignOutUrl="/"
                     userProfileMode="navigation"
-                    userProfileUrl="/profile/edit"
+                    userProfileUrl={user?.username ? `/profile/${user.username}` : '/profile/projects'}
                   />
                 </div>
               </div>
@@ -167,9 +182,12 @@ export default function Navbar() {
               </SignedOut>
 
               <SignedIn>
-                <div className="flex items-center space-x-4">
-                  <Link href="/profile/edit" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition">
-                    Edit Profile
+                <div className="flex flex-col space-y-2">
+                  <Link href="/profile/projects" className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
+                    My Projects
+                  </Link>
+                  <Link href="/profile/manage-projects" className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
+                    Manage Projects
                   </Link>
                   <div className="hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
                     <UserButton 
@@ -184,7 +202,7 @@ export default function Navbar() {
                       }}
                       afterSignOutUrl="/"
                       userProfileMode="navigation"
-                      userProfileUrl="/profile/edit"
+                      userProfileUrl={user?.username ? `/profile/${user.username}` : '/profile/projects'}
                     />
                   </div>
                 </div>

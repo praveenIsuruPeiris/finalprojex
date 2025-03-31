@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Autocomplete, LoadScript } from '@react-google-maps/api';
+import { Autocomplete } from '@react-google-maps/api';
 import RichTextEditor from './RichTextEditor';
 import { processFiles } from '../utils/processFiles'; // <- import the helper here
 import Notification from './Notification';
@@ -12,8 +12,29 @@ interface ProjectFormProps {
   darkMode: boolean;
 }
 
-export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectFormProps) {
+// Create a wrapper component for the Autocomplete
+const LocationAutocomplete = ({ value, onChange, onPlaceSelect }: { 
+  value: string; 
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onPlaceSelect: (autocomplete: google.maps.places.Autocomplete) => void;
+}) => {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+
+  return (
+    <Autocomplete onLoad={setAutocomplete} onPlaceChanged={() => autocomplete && onPlaceSelect(autocomplete)}>
+      <input
+        type="text"
+        name="location"
+        placeholder="Search for a location"
+        className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent px-4 py-2.5 transition-colors"
+        value={value}
+        onChange={onChange}
+      />
+    </Autocomplete>
+  );
+};
+
+export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -58,32 +79,32 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
     }
   };
 
-  const handlePlaceSelect = () => {
-    if (autocomplete) {
-      const place = autocomplete.getPlace();
-      let country = '',
-        state = '',
-        city = '';
+  const handlePlaceSelect = (autocomplete: google.maps.places.Autocomplete) => {
+    const place = autocomplete.getPlace();
+    let country = '',
+      state = '',
+      city = '';
 
-      place.address_components?.forEach((component) => {
-        if (component.types.includes('country')) country = component.long_name;
-        if (component.types.includes('administrative_area_level_1')) state = component.long_name;
-        if (component.types.includes('locality')) city = component.long_name;
-      });
+    place.address_components?.forEach((component: google.maps.GeocoderAddressComponent) => {
+      if (component.types.includes('country')) country = component.long_name;
+      if (component.types.includes('administrative_area_level_1')) state = component.long_name;
+      if (component.types.includes('locality')) city = component.long_name;
+    });
 
-      const locationArray = [city, state, country].filter(Boolean);
-      const formattedLocation = locationArray.join(', ');
+    const locationArray = [city, state, country].filter(Boolean);
+    const formattedLocation = locationArray.join(', ');
 
-      setFormData((prev) => ({ ...prev, location: formattedLocation }));
-    }
+    setFormData((prev) => ({ ...prev, location: formattedLocation }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
   };
 
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(formData);
-      }}
+      onSubmit={handleSubmit}
       className="space-y-8 mt-4"
     >
       {/* Title */}
@@ -154,18 +175,11 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
           Project Location
         </label>
         <div className="space-y-2">
-          <LoadScript googleMapsApiKey={googleApiKey} libraries={['places']}>
-            <Autocomplete onLoad={setAutocomplete} onPlaceChanged={handlePlaceSelect}>
-              <input
-                type="text"
-                name="location"
-                placeholder="Search for a location"
-                className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent px-4 py-2.5 transition-colors"
-                value={formData.location}
-                onChange={handleInputChange}
-              />
-            </Autocomplete>
-          </LoadScript>
+          <LocationAutocomplete
+            value={formData.location}
+            onChange={handleInputChange}
+            onPlaceSelect={handlePlaceSelect}
+          />
           <p className="text-xs text-gray-500 dark:text-gray-400">
             You can either select from suggestions or type your own location
           </p>
