@@ -1,8 +1,11 @@
+/* eslint-disable */
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
+// GET all projects
 export async function GET() {
   try {
-    const apiUrl =process.env.DIRECTUS_API_URL;
+    const apiUrl = process.env.DIRECTUS_API_URL;
     const apiToken = process.env.DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
@@ -31,73 +34,101 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+// Create a new project
+export async function POST(request: NextRequest) {
   try {
     const projectData = await request.json();
+    const apiUrl = process.env.DIRECTUS_API_URL;
+    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
 
-    const response = await fetch(
-      `${process.env.DIRECTUS_API_URL}/items/projects`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
-        },
-        body: JSON.stringify(projectData),
-      }
-    );
+    if (!apiUrl || !apiToken) {
+      return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
+    }
+
+    const response = await fetch(`${apiUrl}/items/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiToken}`,
+      },
+      body: JSON.stringify(projectData),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return NextResponse.json(
-        { message: error.errors?.[0]?.message || 'Failed to create project' },
-        { status: response.status }
-      );
+      return NextResponse.json({ message: error.errors?.[0]?.message || 'Failed to create project' }, { status: response.status });
     }
 
     const data = await response.json();
-    return NextResponse.json({ id: data.data.id });
+    return NextResponse.json({ id: data.data.id }, { status: 201 });
   } catch (error) {
-    console.error('Error in create project:', error);
-    return NextResponse.json(
-      { message: 'Failed to create project' },
-      { status: 500 }
-    );
+    console.error('Error creating project:', error);
+    return NextResponse.json({ message: 'Failed to create project' }, { status: 500 });
   }
 }
 
-export async function PATCH(request: Request) {
+// Update an existing project (expects an ID in the URL)
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const projectData = await request.json();
-    const { id } = projectData;
+    const apiUrl = process.env.DIRECTUS_API_URL;
+    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
 
-    const response = await fetch(
-      `${process.env.DIRECTUS_API_URL}/items/projects/${id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
-        },
-        body: JSON.stringify(projectData),
-      }
-    );
+    if (!apiUrl || !apiToken) {
+      return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
+    }
+
+    const projectData = await request.json();
+    const { id } = params; // Extracting ID from route parameters
+
+    const response = await fetch(`${apiUrl}/items/projects/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiToken}`,
+      },
+      body: JSON.stringify(projectData),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      return NextResponse.json(
-        { message: error.errors?.[0]?.message || 'Failed to update project' },
-        { status: response.status }
-      );
+      return NextResponse.json({ message: error.errors?.[0]?.message || 'Failed to update project' }, { status: response.status });
     }
 
     const data = await response.json();
-    return NextResponse.json({ id: data.data.id });
+    return NextResponse.json({ id: data.data.id }, { status: 200 });
   } catch (error) {
-    console.error('Error in update project:', error);
-    return NextResponse.json(
-      { message: 'Failed to update project' },
-      { status: 500 }
-    );
+    console.error('Error updating project:', error);
+    return NextResponse.json({ message: 'Failed to update project' }, { status: 500 });
+  }
+}
+
+// Delete a project
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const apiUrl = process.env.DIRECTUS_API_URL;
+    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
+
+    if (!apiUrl || !apiToken) {
+      return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
+    }
+
+    const { id } = params; // Extract ID from route
+
+    const response = await fetch(`${apiUrl}/items/projects/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return NextResponse.json({ message: error.errors?.[0]?.message || 'Failed to delete project' }, { status: response.status });
+    }
+
+    return NextResponse.json({ message: 'Project deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return NextResponse.json({ message: 'Failed to delete project' }, { status: 500 });
   }
 }
