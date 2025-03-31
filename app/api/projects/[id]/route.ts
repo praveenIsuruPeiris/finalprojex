@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    console.log('Fetching project with ID:', context.params.id);
+    console.log('Fetching project with ID:', params.id);
     console.log('Using API URL:', process.env.NEXT_PUBLIC_DIRECTUS_API_URL);
     console.log('Admin token exists:', !!process.env.DIRECTUS_Admin_TOKEN);
 
@@ -18,7 +19,7 @@ export async function GET(
       throw new Error('Directus admin token is not configured');
     }
 
-    const url = `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${context.params.id}?fields=*,images.directus_files_id.*`;
+    const url = `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${params.id}?fields=*,images.directus_files_id.*`;
     console.log('Full URL:', url);
 
     const response = await fetch(url, {
@@ -89,7 +90,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     if (!process.env.NEXT_PUBLIC_DIRECTUS_API_URL) {
@@ -104,7 +105,7 @@ export async function PATCH(
     const { title, description, status, location, images } = body;
 
     console.log('Updating project with data:', {
-      id: context.params.id,
+      id: params.id,
       title,
       description,
       status,
@@ -114,7 +115,7 @@ export async function PATCH(
 
     // First, get the current project data to ensure it exists
     const getResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${context.params.id}`,
+      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${params.id}`,
       {
         headers: {
           'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}`,
@@ -129,7 +130,7 @@ export async function PATCH(
 
     // Now update the project
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${context.params.id}`,
+      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${params.id}`,
       {
         method: 'PATCH',
         headers: {
