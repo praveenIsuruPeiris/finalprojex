@@ -6,8 +6,8 @@ export async function POST(request: Request) {
       throw new Error('Directus API URL is not configured');
     }
 
-    if (!process.env.DIRECTUS_Admin_TOKEN) {
-      throw new Error('Directus admin token is not configured');
+    if (!process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN) {
+      throw new Error('Directus API token is not configured');
     }
 
     const formData = await request.formData();
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}`,
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN}`,
         },
         body: directusFormData,
       }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data.data);
+    return NextResponse.json({ id: data.data.id });
   } catch (error) {
     console.error('Error in upload:', error);
     return NextResponse.json(

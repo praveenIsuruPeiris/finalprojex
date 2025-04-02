@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button, Label, TextInput, Select } from 'flowbite-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { Autocomplete } from '@react-google-maps/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Notification from '../components/Notification';
 import ImageUpload from '../components/ImageUpload';
 import GoogleMapsWrapper from '../components/GoogleMapsWrapper';
-import { Autocomplete } from '@react-google-maps/api';
 
 interface Project {
   id: string;
@@ -19,10 +19,40 @@ interface Project {
   description: string;
   status: string;
   location: string;
+  latitude: number;
+  longitude: number;
   images: { id: string }[];
 }
 
-export default function EditProject() {
+interface LocationInputProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const LocationInput = ({ value, onChange }: LocationInputProps) => {
+  return (
+    <Autocomplete
+      onLoad={(autocomplete) => {
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.formatted_address) {
+            onChange(place.formatted_address);
+          }
+        });
+      }}
+    >
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg w-full rounded-lg px-4 py-2"
+        placeholder="Enter project location"
+      />
+    </Autocomplete>
+  );
+};
+
+function EditProjectContent() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const searchParams = useSearchParams();
@@ -77,10 +107,7 @@ export default function EditProject() {
         }
         const data = await response.json();
         
-        // Set the project data
         setProject(data);
-        
-        // Initialize form state with project data
         setFormData({
           title: data.title || '',
           status: data.status || 'active',
@@ -88,7 +115,6 @@ export default function EditProject() {
         });
         setExistingImages(data.images || []);
         
-        // Set editor content
         if (editor && data.description) {
           editor.commands.setContent(data.description);
         }
@@ -115,7 +141,6 @@ export default function EditProject() {
     setError(null);
 
     try {
-      // Upload new images first
       const uploadedImages = await Promise.all(
         images.map(async (file) => {
           const formData = new FormData();
@@ -127,7 +152,8 @@ export default function EditProject() {
           });
 
           if (!response.ok) {
-            throw new Error('Failed to upload image');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to upload image');
           }
 
           const data = await response.json();
@@ -135,10 +161,8 @@ export default function EditProject() {
         })
       );
 
-      // Combine existing and new image IDs
       const allImages = [...existingImages.map(img => ({ directus_files_id: img.id })), ...uploadedImages];
 
-      // Update project with all images
       const response = await fetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: {
@@ -161,7 +185,6 @@ export default function EditProject() {
         type: 'success'
       });
 
-      // Redirect after a short delay
       setTimeout(() => {
         router.push('/profile/projects');
       }, 1500);
@@ -177,33 +200,7 @@ export default function EditProject() {
     }
   };
 
-  const handlePlaceSelect = (autocomplete: google.maps.places.Autocomplete) => {
-    const place = autocomplete.getPlace();
-    let country = '',
-      state = '',
-      city = '';
-
-    place.address_components?.forEach((component: google.maps.GeocoderAddressComponent) => {
-      if (component.types.includes('country')) country = component.long_name;
-      if (component.types.includes('administrative_area_level_1')) state = component.long_name;
-      if (component.types.includes('locality')) city = component.long_name;
-    });
-
-    const locationArray = [city, state, country].filter(Boolean);
-    const formattedLocation = locationArray.join(', ');
-
-    setFormData(prev => ({ ...prev, location: formattedLocation }));
-  };
-
   if (!mounted || !isLoaded) {
-    return null;
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
         <Navbar />
@@ -223,6 +220,10 @@ export default function EditProject() {
     );
   }
 
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <Navbar />
@@ -236,91 +237,82 @@ export default function EditProject() {
             </div>
           )}
 
-          <GoogleMapsWrapper>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="title" className="text-gray-900 dark:text-white text-lg">Title</Label>
-                <TextInput
-                  id="title"
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  required
-                  className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg"
-                  placeholder="Enter project title"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description" className="text-gray-900 dark:text-white text-lg">Description</Label>
-                <div className="mt-2">
-                  <EditorContent editor={editor} />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="status" className="text-gray-900 dark:text-white text-lg">Status</Label>
-                <Select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg"
-                >
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="on-hold">On Hold</option>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="location" className="text-gray-900 dark:text-white text-lg">Location</Label>
-                <Autocomplete onLoad={(autocomplete) => {
-                  autocomplete.addListener('place_changed', () => {
-                    handlePlaceSelect(autocomplete);
-                  });
-                }}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6">
+            <GoogleMapsWrapper>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="title" className="text-gray-900 dark:text-white text-lg">Title</Label>
                   <TextInput
-                    id="location"
+                    id="title"
                     type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     required
                     className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg"
-                    placeholder="Enter project location"
+                    placeholder="Enter project title"
                   />
-                </Autocomplete>
-              </div>
+                </div>
 
-              <div>
-                <Label className="text-gray-900 dark:text-white text-lg">Images</Label>
-                <ImageUpload
-                  images={images}
-                  setImages={setImages}
-                  existingImages={existingImages}
-                  setExistingImages={setExistingImages}
-                />
-              </div>
+                <div>
+                  <Label htmlFor="description" className="text-gray-900 dark:text-white text-lg">Description</Label>
+                  <div className="mt-2">
+                    <EditorContent editor={editor} />
+                  </div>
+                </div>
 
-              <div className="flex justify-end space-x-4 pt-6">
-                <Button
-                  type="button"
-                  gradientDuoTone="redToPink"
-                  onClick={() => router.back()}
-                  size="lg"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  gradientDuoTone="purpleToBlue"
-                  disabled={isLoading}
-                  size="lg"
-                >
-                  {isLoading ? 'Saving...' : 'Update Project'}
-                </Button>
-              </div>
-            </form>
-          </GoogleMapsWrapper>
+                <div>
+                  <Label htmlFor="status" className="text-gray-900 dark:text-white text-lg">Status</Label>
+                  <Select
+                    id="status"
+                    value={formData.status}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg"
+                  >
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="on-hold">On Hold</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="location" className="text-gray-900 dark:text-white text-lg">Location</Label>
+                  <LocationInput
+                    value={formData.location}
+                    onChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-gray-900 dark:text-white text-lg">Images</Label>
+                  <ImageUpload
+                    images={images}
+                    setImages={setImages}
+                    existingImages={existingImages}
+                    setExistingImages={setExistingImages}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-4 pt-6">
+                  <Button
+                    type="button"
+                    gradientDuoTone="redToPink"
+                    onClick={() => router.back()}
+                    size="lg"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    gradientDuoTone="purpleToBlue"
+                    disabled={isLoading}
+                    size="lg"
+                  >
+                    {isLoading ? 'Saving...' : 'Update Project'}
+                  </Button>
+                </div>
+              </form>
+            </GoogleMapsWrapper>
+          </div>
         </div>
       </div>
       <Footer />
@@ -332,5 +324,13 @@ export default function EditProject() {
         />
       )}
     </div>
+  );
+}
+
+export default function EditProject() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EditProjectContent />
+    </Suspense>
   );
 } 

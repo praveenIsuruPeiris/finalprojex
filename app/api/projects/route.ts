@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Update an existing project (expects an ID in the URL)
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest) {
   try {
     const apiUrl = process.env.DIRECTUS_API_URL;
     const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
@@ -78,7 +78,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const projectData = await request.json();
-    const { id } = params; // Extracting ID from route parameters
+    const url = new URL(request.url);
+    const id = url.pathname.split('/').pop();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+    }
 
     const response = await fetch(`${apiUrl}/items/projects/${id}`, {
       method: 'PATCH',
@@ -103,7 +108,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // Delete a project
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest) {
   try {
     const apiUrl = process.env.DIRECTUS_API_URL;
     const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
@@ -112,7 +117,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
     }
 
-    const { id } = params; // Extract ID from route
+    const url = new URL(request.url);
+    const id = url.pathname.split('/').pop();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+    }
 
     const response = await fetch(`${apiUrl}/items/projects/${id}`, {
       method: 'DELETE',

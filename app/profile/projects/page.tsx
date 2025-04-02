@@ -16,7 +16,8 @@ interface Project {
   status: string;
   location: string;
   images: { id: string }[];
-  created_at: string;
+  date_created: string;
+  createdAt: string;
   user_role: string;
 }
 
@@ -102,6 +103,7 @@ export default function MyProjects() {
               return {
                 ...project,
                 user_role: membership?.role || 'member',
+                date_created: project.date_created || project.created_at,
                 images: (project.images || [])
                   .map((item: any) => {
                     // Handle both direct file ID and nested structure
@@ -129,6 +131,27 @@ export default function MyProjects() {
 
     fetchUserProjects();
   }, [isSignedIn]);
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'No date';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return 'Invalid Date';
+      }
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error, 'Date string:', dateString);
+      return 'Invalid Date';
+    }
+  };
 
   if (!isLoaded) return <p className="text-center text-gray-800 dark:text-gray-300">Loading...</p>;
   if (!isSignedIn) return null;
@@ -174,7 +197,10 @@ export default function MyProjects() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
               <div key={project.id} className="relative group">
-                <ProjectCard {...project} createdAt={project.created_at} />
+                <ProjectCard 
+                  {...project} 
+                  createdAt={project.date_created}
+                />
                 <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     project.user_role === 'admin'

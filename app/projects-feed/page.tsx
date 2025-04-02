@@ -41,7 +41,7 @@ export default function ProjectsFeed() {
           description: project.description,
           status: project.status,
           location: project.location,
-          createdAt: project.date_created || null,
+          createdAt: project.date_created || project.created_at,
           images: (project.images || [])
             .map((item: any) => {
               // Handle both direct file ID and nested structure

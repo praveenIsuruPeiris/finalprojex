@@ -1,62 +1,45 @@
-// app/api/projects/[id]/route.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+/* eslint-disable */
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+import { NextResponse, NextRequest } from 'next/server';
+
+export async function GET(req: NextRequest): Promise<Response> {
   try {
-    const { id } = params;
-    console.log('Fetching project with ID:', id);
+    console.log("📩 Fetching project...");
 
-    if (!process.env.NEXT_PUBLIC_DIRECTUS_API_URL) {
-      throw new Error('Directus API URL is not configured');
+    const url = new URL(req.url);
+    const id = url.pathname.split('/').pop();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
 
-    if (!process.env.DIRECTUS_Admin_TOKEN) {
-      throw new Error('Directus admin token is not configured');
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.DIRECTUS_Admin_TOKEN;
+
+    if (!apiUrl || !apiToken) {
+      throw new Error('Directus API configuration missing');
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${id}?fields=*,images.directus_files_id.*`,
+      `${apiUrl}/items/projects/${id}?fields=*,images.directus_files_id.*`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}`,
+          'Authorization': `Bearer ${apiToken}`,
           'Accept': 'application/json',
         },
         cache: 'no-store',
       }
     );
 
-    const responseText = await response.text();
-    
-    if (responseText.trim().startsWith('<!DOCTYPE')) {
-      throw new Error('Invalid API response: received HTML instead of JSON');
-    }
-
-    const data = JSON.parse(responseText);
+    const data = await response.json();
 
     if (!response.ok) {
       throw new Error(data.errors?.[0]?.message || `Failed to fetch project: ${response.status}`);
     }
-    
-    if (!data.data) {
-      throw new Error('No project data received');
-    }
 
-    const project = {
-      ...data.data,
-      images: (data.data.images || [])
-        .map((item: any) => ({
-          id: typeof item === 'string' ? item : item.directus_files_id?.id || item.directus_files_id
-        }))
-        .filter(Boolean)
-    };
-
-    return NextResponse.json(project);
+    return NextResponse.json(data.data);
   } catch (error) {
-    console.error('Error in GET /api/projects/[id]:', error);
+    console.error('❌ Error in GET /api/projects/[id]:', error);
     return NextResponse.json(
       { message: error instanceof Error ? error.message : 'Failed to fetch project' },
       { status: 500 }
@@ -64,108 +47,86 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest): Promise<Response> {
   try {
-    const { id } = params;
-    
-    if (!process.env.NEXT_PUBLIC_DIRECTUS_API_URL) {
-      throw new Error('Directus API URL is not configured');
+    console.log("📩 Updating project...");
+
+    const url = new URL(req.url);
+    const id = url.pathname.split('/').pop();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
 
-    if (!process.env.DIRECTUS_Admin_TOKEN) {
-      throw new Error('Directus admin token is not configured');
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
+
+    if (!apiUrl || !apiToken) {
+      throw new Error('Directus API configuration missing');
     }
 
-    const body = await request.json();
-    const { title, description, status, location, images } = body;
-
-    // Verify project exists
-    const getResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${id}`,
-      { headers: { 'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}` } }
-    );
-
-    if (!getResponse.ok) {
-      throw new Error('Project not found');
-    }
-
-    // Update project
-    const updateResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          status,
-          location,
-          images: images.map((img: any) => img.id),
-        }),
-      }
-    );
-
-    const data = await updateResponse.json();
-
-    if (!updateResponse.ok) {
-      throw new Error(data.errors?.[0]?.message || `Failed to update project: ${updateResponse.status}`);
-    }
-
-    return NextResponse.json({
-      ...data.data,
-      images: (data.data.images || []).map((item: any) => ({
-        id: typeof item === 'string' ? item : item.directus_files_id?.id || item.directus_files_id
-      })).filter(Boolean)
+    const body = await req.json();
+    const response = await fetch(`${apiUrl}/items/projects/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiToken}`,
+      },
+      body: JSON.stringify(body),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update project');
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in PATCH /api/projects/[id]:', error);
+    console.error('❌ Error updating project:', error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'Update failed' },
+      { message: error instanceof Error ? error.message : 'Failed to update project' },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest): Promise<Response> {
   try {
-    const { id } = params;
+    console.log("📩 Deleting project...");
 
-    if (!process.env.NEXT_PUBLIC_DIRECTUS_API_URL) {
-      throw new Error('Directus API URL is not configured');
+    const url = new URL(req.url);
+    const id = url.pathname.split('/').pop();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
 
-    if (!process.env.DIRECTUS_Admin_TOKEN) {
-      throw new Error('Directus admin token is not configured');
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
+
+    if (!apiUrl || !apiToken) {
+      throw new Error('Directus API configuration missing');
     }
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${id}`,
-      {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${process.env.DIRECTUS_Admin_TOKEN}` },
-      }
-    );
+    const response = await fetch(`${apiUrl}/items/projects/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
-      throw new Error(`Deletion failed: ${response.status}`);
+      const errorData = await response.json();
+      return NextResponse.json({ error: errorData.message || 'Failed to delete project' }, { status: response.status });
     }
 
-    return NextResponse.json({ success: true });
-
+    return new Response(null, { status: 204 });
   } catch (error) {
-    console.error('Error in DELETE /api/projects/[id]:', error);
+    console.error('❌ Error deleting project:', error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'Deletion failed' },
+      { message: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
