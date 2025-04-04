@@ -7,11 +7,8 @@ interface GoogleMapsWrapperProps {
   children: ReactNode;
 }
 
-// Singleton instance to track if the API is loaded
-let isGoogleMapsLoaded = false;
-
 export default function GoogleMapsWrapper({ children }: GoogleMapsWrapperProps) {
-  const [isApiKeyValid, setIsApiKeyValid] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
   useEffect(() => {
@@ -19,20 +16,14 @@ export default function GoogleMapsWrapper({ children }: GoogleMapsWrapperProps) 
       console.error('Google Maps API key is not set. Please check your environment variables.');
       return;
     }
-    setIsApiKeyValid(true);
   }, [googleApiKey]);
 
-  if (!isApiKeyValid) {
+  if (!googleApiKey) {
     return (
       <div className="w-full p-4 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 rounded-lg">
         Google Maps API key is not configured. Please check your environment variables.
       </div>
     );
-  }
-
-  // If the API is already loaded, just render the children
-  if (isGoogleMapsLoaded) {
-    return <>{children}</>;
   }
 
   return (
@@ -45,10 +36,10 @@ export default function GoogleMapsWrapper({ children }: GoogleMapsWrapperProps) 
         </div>
       }
       onLoad={() => {
-        isGoogleMapsLoaded = true;
+        setIsLoaded(true);
       }}
     >
-      {children}
+      {isLoaded ? children : null}
     </LoadScript>
   );
 } 
