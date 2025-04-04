@@ -14,14 +14,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     }
 
     const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
-    const apiToken = process.env.DIRECTUS_Admin_TOKEN;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       throw new Error('Directus API configuration missing');
     }
 
     const response = await fetch(
-      `${apiUrl}/items/projects/${id}?fields=*,images.directus_files_id.*`,
+      `${apiUrl}/items/projects/${id}?fields=*,images.directus_files_id.*,created_by.id,created_by.first_name,created_by.last_name,created_by.username`,
       {
         headers: {
           'Authorization': `Bearer ${apiToken}`,
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest): Promise<Response> {
 
 export async function DELETE(req: NextRequest): Promise<Response> {
   try {
-    console.log("📩 Deleting project...");
+    console.log("🗑️ Deleting project...");
 
     const url = new URL(req.url);
     const id = url.pathname.split('/').pop();

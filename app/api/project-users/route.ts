@@ -10,7 +10,7 @@ export async function POST(request: Request) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Authorization': `Bearer ${process.env.DIRECTUS_API_TOKEN}`,
         },
         body: JSON.stringify(projectUserData),
       }

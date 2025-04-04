@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    console.log("📩 Incoming Webhook Request...");
+    console.log("📩 Incoming User Sync Request...");
 
     // Parse the request body
     const body = await req.json();
-    console.log("Received Webhook Data:", body);
+    console.log("Received User Data:", body);
 
     const { clerkId, email, username, firstName, lastName, profileImage } = body;
 
@@ -23,13 +23,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing Directus API configuration" }, { status: 500 });
     }
 
+    // Clean up API URL (remove trailing slashes)
     apiUrl = apiUrl.replace(/\/+$/, "");
 
-    console.log("🔍 Checking if user already exists...");
+    console.log(`🔍 Checking if user already exists for Clerk ID: ${clerkId}...`);
 
     // Check if the user already exists in Directus
     const checkUserResponse = await fetch(
-      `${apiUrl}/items/users?filter[clerk_id][_eq]=${clerkId}`,
+      `${apiUrl}/items/users?filter[clerk_id][_eq]=${encodeURIComponent(clerkId)}`,
       {
         method: "GET",
         headers: {
@@ -39,15 +40,29 @@ export async function POST(req: Request) {
       }
     );
 
+    if (!checkUserResponse.ok) {
+      const errorText = await checkUserResponse.text();
+      console.error(`❌ Failed to check for existing user: ${errorText}`);
+      return NextResponse.json({ error: "Failed to check for existing user" }, { status: 500 });
+    }
+
     const existingUserData = await checkUserResponse.json();
 
     if (existingUserData?.data?.length > 0) {
-      console.log("✅ User already exists. Skipping creation.");
-      return NextResponse.json({ success: true, message: "User already exists." }, { status: 200 });
+      console.log(`✅ User already exists with Directus ID: ${existingUserData.data[0].id}`);
+      return NextResponse.json({ 
+        success: true, 
+        message: "User already exists.",
+        directusId: existingUserData.data[0].id
+      }, { status: 200 });
     }
 
-    console.log("🔄 Syncing user with Directus...");
+    console.log("🔄 Creating new user in Directus...");
 
+    // Generate a username if not provided
+    const generatedUsername = username || email.split("@")[0];
+    
+    // Create user in Directus
     const directusResponse = await fetch(`${apiUrl}/items/users`, {
       method: "POST",
       headers: {
@@ -57,22 +72,27 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         clerk_id: clerkId,
         email: email,
-        username: username || email.split("@")[0],
+        username: generatedUsername,
         first_name: firstName || "",
         last_name: lastName || "",
         profile_image: profileImage || "",
       }),
     });
 
-    const responseText = await directusResponse.text();
-
     if (!directusResponse.ok) {
-      console.error("❌ Failed to sync user with Directus:", responseText);
+      const responseText = await directusResponse.text();
+      console.error(`❌ Failed to create user in Directus: ${responseText}`);
       return NextResponse.json({ error: responseText }, { status: directusResponse.status });
     }
 
-    console.log("✅ User synced successfully with Directus!");
-    return NextResponse.json({ success: true }, { status: 200 });
+    const newUserData = await directusResponse.json();
+    console.log(`✅ User created successfully in Directus with ID: ${newUserData.data.id}`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: "User created successfully",
+      directusId: newUserData.data.id
+    }, { status: 200 });
 
   } catch (error) {
     console.error("❌ Internal Server Error:", error);

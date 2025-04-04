@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId: clerkId } = await auth();
+    const user = await currentUser();
+    const clerkId = user?.id;
+    
     if (!clerkId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
       `${process.env.DIRECTUS_API_URL}/items/users?filter[clerk_id][_eq]=${clerkId}`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Authorization': `Bearer ${process.env.DIRECTUS_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
       }
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
       `${process.env.DIRECTUS_API_URL}/items/Projects_Users?filter[project_id][_eq]=${projectId}&filter[user_id][_eq]=${userId}`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Authorization': `Bearer ${process.env.DIRECTUS_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
       }

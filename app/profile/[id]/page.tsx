@@ -46,7 +46,6 @@ export default function UserProfile({ params }: { params: Promise<{ id: string }
     likesReceived: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [isCurrentUser, setIsCurrentUser] = useState(false);
   const [directusUserId, setDirectusUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string>('');
@@ -251,11 +250,6 @@ export default function UserProfile({ params }: { params: Promise<{ id: string }
     }
   }, [username, user]);
 
-  const handleFollow = async () => {
-    // Implement follow functionality
-    setIsFollowing(!isFollowing);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -324,15 +318,6 @@ export default function UserProfile({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
             </div>
-            {!isCurrentUser && (
-              <Button
-                onClick={handleFollow}
-                gradientDuoTone={isFollowing ? "redToPink" : "purpleToBlue"}
-                className="mt-4"
-              >
-                {isFollowing ? 'Unfollow' : 'Follow'}
-              </Button>
-            )}
           </div>
         </div>
 

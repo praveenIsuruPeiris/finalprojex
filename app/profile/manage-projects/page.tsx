@@ -4,9 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button, Table, Badge, Modal, Label, Select, Dropdown } from 'flowbite-react';
+import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import Footer from '@/app/components/Footer';
 import AddUserToProject from '@/app/components/AddUserToProject';
+import Pagination from '@/app/components/Pagination';
+import Fuse from 'fuse.js';
+import Notification from '@/app/components/Notification';
+import GroupChatPanel from '@/app/components/GroupChatPanel';
 
 interface ProjectMember {
   id: string;
@@ -69,6 +74,17 @@ export default function ManageProjects() {
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Project[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   // Redirect to sign-in page if the user is not signed in
   useEffect(() => {
@@ -196,6 +212,19 @@ export default function ManageProjects() {
   };
 
   const handleEditMember = (project: Project, member: ProjectMember) => {
+    // Check if this is the last admin trying to change their own role
+    const adminCount = members.filter(m => m.role === 'admin').length;
+    const isLastAdmin = adminCount <= 1 && member.role === 'admin';
+    const isCurrentUser = member.user_id === user?.id;
+
+    if (isLastAdmin && isCurrentUser) {
+      setNotification({
+        message: "You cannot change your role as you are the last admin of this project.",
+        type: 'error'
+      });
+      return;
+    }
+
     setSelectedProject(project);
     setSelectedMember(member);
     setNewRole(member.role);
@@ -204,6 +233,21 @@ export default function ManageProjects() {
 
   const handleUpdateMember = async () => {
     if (!selectedProject || !selectedMember) return;
+
+    // Check if this is the last admin trying to change their own role
+    const adminCount = members.filter(m => m.role === 'admin').length;
+    const isLastAdmin = adminCount <= 1 && selectedMember.role === 'admin';
+    const isCurrentUser = selectedMember.user_id === user?.id;
+    const isChangingToNonAdmin = newRole !== 'admin';
+
+    if (isLastAdmin && isCurrentUser && isChangingToNonAdmin) {
+      setNotification({
+        message: "You cannot change your role as you are the last admin of this project.",
+        type: 'error'
+      });
+      setShowModal(false);
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -222,9 +266,19 @@ export default function ManageProjects() {
       if (response.ok) {
         fetchProjectMembers(selectedProject.id);
         setShowModal(false);
+        setNotification({
+          message: "Member role updated successfully!",
+          type: 'success'
+        });
+      } else {
+        throw new Error('Failed to update member role');
       }
     } catch (error) {
       console.error('Error updating member:', error);
+      setNotification({
+        message: "Failed to update member role. Please try again.",
+        type: 'error'
+      });
     }
   };
 
@@ -232,6 +286,18 @@ export default function ManageProjects() {
     if (!selectedProject) return;
 
     try {
+      // Check if this is the last admin
+      const adminCount = members.filter(m => m.role === 'admin').length;
+      const memberToRemove = members.find(m => m.id === memberId);
+      
+      if (adminCount <= 1 && memberToRemove?.role === 'admin') {
+        setNotification({
+          message: "Cannot remove the last admin from the project. Please assign another admin first.",
+          type: 'error'
+        });
+        return;
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/Projects_Users/${memberId}`,
         {
@@ -244,7 +310,149 @@ export default function ManageProjects() {
       }
     } catch (error) {
       console.error('Error removing member:', error);
+      setNotification({
+        message: "Failed to remove member. Please try again.",
+        type: 'error'
+      });
     }
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      // First fetch all project members to get their IDs
+      const membersResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/Projects_Users?filter[project_id][_eq]=${projectToDelete.id}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN}`,
+          },
+        }
+      );
+
+      if (!membersResponse.ok) {
+        throw new Error('Failed to fetch project members');
+      }
+
+      const membersData = await membersResponse.json();
+      const memberIds = membersData.data.map((member: any) => member.id);
+
+      // Delete each member individually
+      for (const memberId of memberIds) {
+        const deleteMemberResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/Projects_Users/${memberId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN}`,
+            },
+          }
+        );
+
+        if (!deleteMemberResponse.ok) {
+          console.error(`Failed to delete member ${memberId}`);
+        }
+      }
+
+      // Then delete the project
+      const projectResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${projectToDelete.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN}`,
+          },
+        }
+      );
+
+      if (projectResponse.ok) {
+        // Remove the project from the state
+        setProjects(projects.filter(p => p.id !== projectToDelete.id));
+        setShowDeleteModal(false);
+        setProjectToDelete(null);
+        
+        // Show success message
+        setNotification({
+          message: "Project deleted successfully!",
+          type: 'success'
+        });
+      } else {
+        const errorData = await projectResponse.json();
+        console.error('Delete project error:', errorData);
+        throw new Error('Failed to delete project');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      setNotification({
+        message: "Failed to delete project. Please try again.",
+        type: 'error'
+      });
+    }
+  };
+
+  // Calculate paginated projects
+  const paginatedProjects = searchQuery 
+    ? searchResults.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : projects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const totalPages = Math.ceil((searchQuery ? searchResults.length : projects.length) / itemsPerPage);
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Configure Fuse.js options
+    const options = {
+      keys: ['title', 'description', 'status', 'location'],
+      threshold: 0.3,
+      includeScore: true
+    };
+    
+    // Create a new Fuse instance
+    const fuse = new Fuse(projects, options);
+    
+    // Perform the search
+    
+    const results = fuse.search(query);
+    
+    // Extract the items from the results
+    const searchResults = results.map(result => result.item);
+    setSearchResults(searchResults);
+  };
+
+  // Reset search when projects change
+  useEffect(() => {
+    if (searchQuery) {
+      handleSearch(searchQuery);
+    }
+  }, [projects]);
+
+  const handleOpenChat = (projectId: string) => {
+    setActiveProjectId(projectId);
+    setShowChat(true);
+  };
+
+  const handleCloseChat = () => {
+    setShowChat(false);
+    setActiveProjectId(null);
   };
 
   if (!isLoaded) return <p className="text-center text-gray-800 dark:text-gray-300">Loading...</p>;
@@ -274,6 +482,14 @@ export default function ManageProjects() {
       <div className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Manage Projects</h1>
 
+        {notification && (
+          <Notification 
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
         {projects.length === 0 ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No projects to manage</h2>
@@ -281,115 +497,125 @@ export default function ManageProjects() {
           </div>
         ) : (
           <div className="space-y-6">
-            {projects.map((project) => (
-              <div key={project.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center mb-4">
+            {/* Search Bar */}
+            <div className="mb-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              {isSearching && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Found {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+                </p>
+              )}
+            </div>
+
+            {paginatedProjects.map((project) => (
+              <div key={project.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{project.title}</h2>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Button
-                      gradientDuoTone="purpleToBlue"
+                      color="blue"
                       onClick={() => handleViewMembers(project)}
-                      className="shadow-md hover:shadow-lg transition-shadow"
+                      className="shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
                     >
                       View Members
                     </Button>
                     <Button
-                      gradientDuoTone="purpleToBlue"
+                      color="blue"
                       onClick={() => {
                         setSelectedProject(project);
                         setShowAddUserModal(true);
                       }}
-                      className="shadow-md hover:shadow-lg transition-shadow"
+                      className="shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
                     >
                       Add User
+                    </Button>
+                    <Button
+                      color="blue"
+                      onClick={() => router.push(`/edit-project?id=${project.id}`)}
+                      className="shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
+                    >
+                      Edit Project
+                    </Button>
+                    <Button
+                      color="blue"
+                      onClick={() => handleOpenChat(project.id)}
+                      className="shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
+                    >
+                      Chat
+                    </Button>
+                    <Button
+                      color="failure"
+                      onClick={() => handleDeleteProject(project)}
+                      className="shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto text-white bg-gray-500 hover:bg-gray-600 dark:bg-gray-500 dark:hover:bg-gray-600"
+                    >
+                      Delete Project
                     </Button>
                   </div>
                 </div>
 
                 {selectedProject?.id === project.id && members.length > 0 && (
-                  <div className="mt-4">
-                    <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
-                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                          <tr>
-                            <th scope="col" className="px-6 py-3">First Name</th>
-                            <th scope="col" className="px-6 py-3">Last Name</th>
-                            <th scope="col" className="px-6 py-3">Email</th>
-                            <th scope="col" className="px-6 py-3">Role</th>
-                            <th scope="col" className="px-6 py-3">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            console.log('Rendering table for project:', project.id);
-                            console.log('Current members state:', members);
-                            return members.map((member) => {
-                              console.log('Rendering member row:', member);
-                              return (
-                                <tr 
-                                  key={member.id} 
-                                  className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                >
-                                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                                    {member.user?.first_name || 'N/A'}
-                                  </td>
-                                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                                    {member.user?.last_name || 'N/A'}
-                                  </td>
-                                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                                    {member.user?.email || 'N/A'}
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <Badge color={member.role === 'admin' ? 'purple' : 'blue'}>
-                                      {member.role || 'N/A'}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <Dropdown
-                                      label={
-                                        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                                        </svg>
-                                      }
-                                      dismissOnClick={true}
-                                      size="xs"
-                                      className="bg-white dark:bg-gray-800"
-                                    >
-                                      <Dropdown.Item
-                                        onClick={() => handleEditMember(project, member)}
-                                        className="flex items-center"
-                                      >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        Edit Role
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => handleRemoveMember(member.id)}
-                                        className="flex items-center text-red-600 dark:text-red-400"
-                                      >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                        Remove Member
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => window.location.href = `/profile/${member.user.username}`}
-                                        className="flex items-center"
-                                      >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        View Profile
-                                      </Dropdown.Item>
-                                    </Dropdown>
-                                  </td>
-                                </tr>
-                              );
-                            });
-                          })()}
-                        </tbody>
-                      </table>
+                  <div className="mt-4 w-full">
+                    <div className="w-full overflow-x-auto">
+                      <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
+                        {members.map((member) => (
+                          <div 
+                            key={member.id} 
+                            className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 w-full"
+                          >
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <div>
+                                <h3 className="font-medium text-gray-900 dark:text-white">
+                                  <Link 
+                                    href={`/profile/${member.user.username}`}
+                                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                                  >
+                                    {member.user.first_name} {member.user.last_name}
+                                  </Link>
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {member.user.email}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge color={member.role === 'admin' ? 'purple' : 'blue'}>
+                                  {member.role}
+                                </Badge>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    size="xs"
+                                    color="blue"
+                                    onClick={() => handleEditMember(project, member)}
+                                    className="text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    color="failure"
+                                    onClick={() => handleRemoveMember(member.id)}
+                                    className="text-white bg-gray-500 hover:bg-gray-600 dark:bg-gray-500 dark:hover:bg-gray-600"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -401,6 +627,18 @@ export default function ManageProjects() {
                 )}
               </div>
             ))}
+            
+            {/* Pagination */}
+            {projects.length > 0 && totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                startResult={(currentPage - 1) * itemsPerPage + 1}
+                endResult={Math.min(currentPage * itemsPerPage, projects.length)}
+                totalResults={projects.length}
+              />
+            )}
           </div>
         )}
       </div>
@@ -426,9 +664,34 @@ export default function ManageProjects() {
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button gradientDuoTone="purpleToBlue" onClick={handleUpdateMember}>
+          <Button color="blue" onClick={handleUpdateMember} className="text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700">
             Update
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Project Modal */}
+      <Modal show={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <Modal.Header className="text-gray-900 dark:text-white">Delete Project</Modal.Header>
+        <Modal.Body>
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete the project "{projectToDelete?.title}"? This action cannot be undone.
+            </p>
+            <p className="text-red-600 dark:text-red-400 font-bold">
+              Warning: This will remove all members from the project and delete all project data.
+            </p>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex justify-between w-full">
+            <Button color="gray" onClick={() => setShowDeleteModal(false)} className="text-gray-900">
+              Cancel
+            </Button>
+            <Button color="failure" onClick={confirmDeleteProject} className="text-white bg-gray-500 hover:bg-gray-600 dark:bg-gray-500 dark:hover:bg-gray-600">
+              Delete Project
+            </Button>
+          </div>
         </Modal.Footer>
       </Modal>
 
@@ -442,6 +705,14 @@ export default function ManageProjects() {
             fetchProjectMembers(selectedProject.id);
             setShowAddUserModal(false);
           }}
+        />
+      )}
+
+      {/* Group Chat Panel */}
+      {showChat && activeProjectId && (
+        <GroupChatPanel 
+          projectId={activeProjectId} 
+          closeChat={handleCloseChat} 
         />
       )}
 

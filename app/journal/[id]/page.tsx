@@ -15,6 +15,7 @@ type Journal = {
   title: string;
   content: string;       // Rich text / HTML
   date_created: string;  // For display
+  project_id: string;    // Added project_id field
 };
 
 type Attachment = {
@@ -31,13 +32,15 @@ export default function ProjectJournalPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [allJournals, setAllJournals] = useState<Journal[]>([]);
   const [journals, setJournals] = useState<Journal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalJournals, setTotalJournals] = useState(0);
 
   const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL || 'https://crm.lahirupeiris.com';
   const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN || '';
-  const ITEMS_PER_PAGE = 5;
+  const ITEMS_PER_PAGE = 2;
 
   /**
    * 1) Fetch the current user's Directus user ID
@@ -109,9 +112,9 @@ export default function ProjectJournalPage() {
     const fetchJournals = async () => {
       try {
         setLoading(true);
-        // GET /items/project_journal?filter[project_id][_eq]=<pId>&sort=-date_created&page=<page>&limit=<limit>
+        // Fetch all journals for this project
         const res = await fetch(
-          `${apiUrl}/items/project_journal?filter[project_id][_eq]=${projectId}&sort=-date_created&page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+          `${apiUrl}/items/project_journal?filter[project_id][_eq]=${projectId}&sort=date_created`,
           { 
             headers: { 
               Authorization: `Bearer ${apiToken}`,
@@ -128,18 +131,31 @@ export default function ProjectJournalPage() {
         console.log('API Response:', data); // Debug log
 
         // Handle the response data
-        const journals = data.data || [];
-        const total = data.meta?.total || journals.length;
+        const allJournals = data.data || [];
+        const total = allJournals.length;
         const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
-        // If current page is greater than total pages and there are pages, go to last page
-        if (currentPage > totalPages && totalPages > 0) {
-          setCurrentPage(totalPages);
-          return;
-        }
-
-        setJournals(journals);
+        setAllJournals(allJournals);
+        setTotalJournals(total);
         setTotalPages(totalPages);
+        
+        // Calculate the current page's journals
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, total);
+        const currentPageJournals = allJournals.slice(startIndex, endIndex);
+        
+        setJournals(currentPageJournals);
+        
+        // Log pagination details for debugging
+        console.log('Pagination details:', {
+          currentPage,
+          totalPages,
+          totalJournals: total,
+          journalsPerPage: ITEMS_PER_PAGE,
+          journalsInCurrentPage: currentPageJournals.length,
+          startIndex,
+          endIndex
+        });
       } catch (err: any) {
         console.error('Error fetching journals:', err); // Debug log
         setError(err.message || 'Error fetching journals');
@@ -148,7 +164,25 @@ export default function ProjectJournalPage() {
       }
     };
     fetchJournals();
-  }, [projectId, currentPage, apiUrl, apiToken]);
+  }, [projectId, apiUrl, apiToken]);
+
+  // Update displayed journals when page changes
+  useEffect(() => {
+    if (allJournals.length === 0) return;
+    
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalJournals);
+    const currentPageJournals = allJournals.slice(startIndex, endIndex);
+    
+    setJournals(currentPageJournals);
+    
+    console.log('Page changed, updating journals:', {
+      currentPage,
+      startIndex,
+      endIndex,
+      journalsCount: currentPageJournals.length
+    });
+  }, [currentPage, allJournals, totalJournals]);
 
   if (loading) {
     return (
@@ -203,16 +237,16 @@ export default function ProjectJournalPage() {
                 userRole={userRole}
               />
             ))}
-            {/* Only show pagination if there are multiple pages */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center">
+            {/* Show pagination if there are more than 2 entries */}
+            {totalJournals > ITEMS_PER_PAGE && (
+              <div className="mt-8">
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
                   onPageChange={setCurrentPage}
                   startResult={(currentPage - 1) * ITEMS_PER_PAGE + 1}
-                  endResult={Math.min(currentPage * ITEMS_PER_PAGE, journals.length)}
-                  totalResults={journals.length}
+                  endResult={Math.min(currentPage * ITEMS_PER_PAGE, totalJournals)}
+                  totalResults={totalJournals}
                 />
               </div>
             )}
@@ -249,7 +283,7 @@ function JournalEntry({
           throw new Error('Failed to fetch journal attachments');
         }
         const data = await res.json();
-        setAttachments(data?.data || []);
+        setAttachments(data.data || []);
       } catch (err) {
         console.error('Error fetching attachments:', err);
       }
@@ -258,55 +292,50 @@ function JournalEntry({
   }, [journal.id, apiUrl, apiToken]);
 
   return (
-    <article className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-start mb-4">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           {journal.title}
         </h2>
-        {/* Edit button if user is admin */}
         {userRole === 'admin' && (
-          <Link href={`/journal-editor?journalId=${journal.id}`}>
-            <button className="text-sm px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border border-blue-200 dark:border-blue-800">
+          <Link href={`/journal-editor?journalId=${journal.id}&projectId=${journal.project_id}`}>
+            <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
               Edit
             </button>
           </Link>
         )}
       </div>
-
-      {journal.date_created && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Created on: {new Date(journal.date_created).toLocaleDateString()}
-        </p>
-      )}
-
-      {/* Render rich text HTML */}
-      <div
-        className="prose dark:prose-invert max-w-none"
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        {new Date(journal.date_created).toLocaleDateString()}
+      </div>
+      <div 
+        className="prose prose-lg dark:prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: journal.content }}
       />
-
-      {/* Attachments */}
       {attachments.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
             Attachments
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {attachments.map((att) => (
-              <div
-                key={att.id}
-                className="bg-gray-100 dark:bg-gray-700 p-2 rounded"
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {attachments.map((attachment) => (
+              <a
+                key={attachment.id}
+                href={`${apiUrl}/assets/${attachment.file_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <img
-                  src={`${apiUrl}/assets/${att.file_id}`}
-                  alt={`Attachment ${att.id}`}
-                  className="w-full h-auto rounded"
+                  src={`${apiUrl}/assets/${attachment.file_id}`}
+                  alt="Attachment"
+                  className="w-full h-32 object-cover rounded"
                 />
-              </div>
+              </a>
             ))}
           </div>
         </div>
       )}
-    </article>
+    </div>
   );
 }

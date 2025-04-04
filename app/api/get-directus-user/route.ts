@@ -8,7 +8,7 @@ export async function POST(request: Request) {
       `${process.env.DIRECTUS_API_URL}/items/users?filter[clerk_id][_eq]=${clerkId}`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Authorization': `Bearer ${process.env.DIRECTUS_API_TOKEN}`,
         },
       }
     );

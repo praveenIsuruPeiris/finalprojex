@@ -5,15 +5,15 @@ import type { NextRequest } from 'next/server';
 // GET all projects
 export async function GET() {
   try {
-    const apiUrl = process.env.DIRECTUS_API_URL;
-    const apiToken = process.env.DIRECTUS_API_TOKEN;
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       console.error('Missing API configuration');
       return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
     }
 
-    const response = await fetch(`${apiUrl}/items/projects`, {
+    const response = await fetch(`${apiUrl}/items/projects?fields=*,images.directus_files_id,created_by.id,created_by.first_name,created_by.last_name`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -38,8 +38,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const projectData = await request.json();
-    const apiUrl = process.env.DIRECTUS_API_URL;
-    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
 // Update an existing project (expects an ID in the URL)
 export async function PATCH(request: NextRequest) {
   try {
-    const apiUrl = process.env.DIRECTUS_API_URL;
-    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });
@@ -110,8 +110,8 @@ export async function PATCH(request: NextRequest) {
 // Delete a project
 export async function DELETE(request: NextRequest) {
   try {
-    const apiUrl = process.env.DIRECTUS_API_URL;
-    const apiToken = process.env.DIRECTUS_ADMIN_TOKEN;
+    const apiUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL;
+    const apiToken = process.env.NEXT_PUBLIC_DIRECTUS_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       return NextResponse.json({ error: 'Missing API configuration' }, { status: 500 });

@@ -4,10 +4,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { HiThumbUp, HiThumbDown } from 'react-icons/hi';
 import useSWR from 'swr';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 
 type Comment = {
   id: string;
   author: string;
+  username: string;
   content: string;
   timestamp: string;
   parent_id: string | null;
@@ -21,13 +24,17 @@ type Comment = {
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function CommentSection({ projectId }: { projectId: string }) {
-  const { user } = useUser();
+  const { user, isSignedIn } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [visibleCommentCount, setVisibleCommentCount] = useState(5);
   const [sortBy, setSortBy] = useState<'recent' | 'likes'>('recent');
+  const [justPostedComment, setJustPostedComment] = useState(false);
+  const [newCommentId, setNewCommentId] = useState<string | null>(null);
   const commentFormRef = useRef<HTMLFormElement>(null);
-  const lastCommentRef = useRef<HTMLDivElement>(null);
+  const newCommentRef = useRef<HTMLDivElement>(null);
 
   const { data: comments = [], mutate } = useSWR<Comment[]>(
     `/api/comments?projectId=${projectId}`,
@@ -51,19 +58,34 @@ export default function CommentSection({ projectId }: { projectId: string }) {
     }
   }, [replyTo]);
 
-  // Scroll to last comment after posting
+  // Scroll to new comment after posting
   useEffect(() => {
-    if (lastCommentRef.current) {
-      lastCommentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (newCommentRef.current && justPostedComment) {
+      newCommentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setJustPostedComment(false);
+      setNewCommentId(null);
     }
-  }, [comments.length]);
+  }, [justPostedComment]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !user) return;
+    if (!newComment.trim()) return;
+    
+    if (!isSignedIn) {
+      // Store the comment in localStorage to restore it after sign-in
+      localStorage.setItem('pendingComment', newComment);
+      if (replyTo) {
+        localStorage.setItem('pendingReplyTo', replyTo);
+      }
+      
+      // Redirect to sign-in with return URL
+      const returnUrl = encodeURIComponent(pathname);
+      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      return;
+    }
 
     try {
-      await fetch('/api/comments', {
+      const response = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,15 +95,30 @@ export default function CommentSection({ projectId }: { projectId: string }) {
         }),
       });
 
-      setNewComment('');
-      setReplyTo(null);
-      mutate();
+      if (response.ok) {
+        const data = await response.json();
+        setNewComment('');
+        setReplyTo(null);
+        setJustPostedComment(true);
+        setNewCommentId(data.id);
+        mutate();
+      }
     } catch (error) {
       console.error('Error posting comment:', error);
     }
   };
 
   const handleReaction = async (commentId: string, type: 'like' | 'dislike') => {
+    if (!isSignedIn) {
+      // Store the reaction info in localStorage
+      localStorage.setItem('pendingReaction', JSON.stringify({ commentId, type }));
+      
+      // Redirect to sign-in with return URL
+      const returnUrl = encodeURIComponent(pathname);
+      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      return;
+    }
+
     try {
       await fetch('/api/reactions', {
         method: 'POST',
@@ -94,6 +131,39 @@ export default function CommentSection({ projectId }: { projectId: string }) {
     }
   };
 
+  // Restore pending comment after sign-in
+  useEffect(() => {
+    if (isSignedIn) {
+      const pendingComment = localStorage.getItem('pendingComment');
+      const pendingReplyTo = localStorage.getItem('pendingReplyTo');
+      const pendingReaction = localStorage.getItem('pendingReaction');
+      
+      if (pendingComment) {
+        setNewComment(pendingComment);
+        if (pendingReplyTo) {
+          setReplyTo(pendingReplyTo);
+        }
+        localStorage.removeItem('pendingComment');
+        localStorage.removeItem('pendingReplyTo');
+        
+        // Focus the comment form
+        if (commentFormRef.current) {
+          commentFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      if (pendingReaction) {
+        try {
+          const { commentId, type } = JSON.parse(pendingReaction);
+          handleReaction(commentId, type);
+          localStorage.removeItem('pendingReaction');
+        } catch (error) {
+          console.error('Error processing pending reaction:', error);
+        }
+      }
+    }
+  }, [isSignedIn]);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -102,7 +172,7 @@ export default function CommentSection({ projectId }: { projectId: string }) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'recent' | 'likes')}
-            className="px-3 py-1 rounded-lg border dark:border-gray-700 dark:bg-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
           >
             <option value="recent">Most Recent</option>
             <option value="likes">Most Liked</option>
@@ -115,7 +185,7 @@ export default function CommentSection({ projectId }: { projectId: string }) {
           value={newComment}
           onChange={e => setNewComment(e.target.value)}
           placeholder={replyTo ? "Reply to comment..." : "Write your comment..."}
-          className="w-full p-4 rounded-lg border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full p-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           rows={3}
         />
         <div className="mt-4 flex gap-4">
@@ -141,8 +211,11 @@ export default function CommentSection({ projectId }: { projectId: string }) {
       </form>
 
       <div className="space-y-6">
-        {sortedComments.slice(0, visibleCommentCount).map((comment, index) => (
-          <div key={comment.id} ref={index === comments.length - 1 ? lastCommentRef : undefined}>
+        {sortedComments.slice(0, visibleCommentCount).map((comment) => (
+          <div 
+            key={comment.id} 
+            ref={comment.id === newCommentId ? newCommentRef : undefined}
+          >
             <CommentTree
               comment={comment}
               onReply={setReplyTo}
@@ -190,9 +263,9 @@ const CommentTree = ({
   return (
     <div className="border-b dark:border-gray-700 pb-4 last:border-0">
       <div className="flex items-start space-x-3">
-        <Avatar src={comment.avatar} author={comment.author} />
+        <Avatar src={comment.avatar} author={comment.author} username={comment.username} />
         <div className="flex-grow">
-          <CommentHeader author={comment.author} timestamp={comment.timestamp} />
+          <CommentHeader author={comment.author} username={comment.username} timestamp={comment.timestamp} />
           <CommentContent content={comment.content} />
           <CommentActions
             comment={comment}
@@ -213,8 +286,8 @@ const CommentTree = ({
   );
 };
 
-const Avatar = ({ src, author, size = "md" }: { src?: string; author: string; size?: "sm" | "md" }) => (
-  <div className="flex-shrink-0">
+const Avatar = ({ src, author, username, size = "md" }: { src?: string; author: string; username: string; size?: "sm" | "md" }) => (
+  <Link href={`/profile/${encodeURIComponent(username)}`} className="flex-shrink-0 hover:opacity-80 transition-opacity">
     {src ? (
       <img src={src} alt={author} className={`${size === "sm" ? "w-6 h-6" : "w-8 h-8"} rounded-full`} />
     ) : (
@@ -224,12 +297,17 @@ const Avatar = ({ src, author, size = "md" }: { src?: string; author: string; si
         </span>
       </div>
     )}
-  </div>
+  </Link>
 );
 
-const CommentHeader = ({ author, timestamp }: { author: string; timestamp: string }) => (
+const CommentHeader = ({ author, username, timestamp }: { author: string; username: string; timestamp: string }) => (
   <div className="flex items-center space-x-2">
-    <h3 className="text-sm font-medium text-gray-900 dark:text-white">{author}</h3>
+    <Link 
+      href={`/profile/${encodeURIComponent(username)}`}
+      className="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+    >
+      {author}
+    </Link>
     <span className="text-xs text-gray-500 dark:text-gray-400">
       {new Date(timestamp).toLocaleDateString('en-US', {
         month: 'short',
@@ -323,9 +401,9 @@ const Replies = ({
   <div className="mt-3 space-y-3">
     {visibleReplies.map(reply => (
       <div key={reply.id} className="flex items-start space-x-3 ml-4">
-        <Avatar src={reply.avatar} author={reply.author} size="sm" />
+        <Avatar src={reply.avatar} author={reply.author} username={reply.username} size="sm" />
         <div className="flex-grow">
-          <CommentHeader author={reply.author} timestamp={reply.timestamp} />
+          <CommentHeader author={reply.author} username={reply.username} timestamp={reply.timestamp} />
           <CommentContent content={reply.content} />
           <CommentActions
             comment={reply}

@@ -77,6 +77,7 @@ export async function GET(request: Request) {
         author: comment.user_id
           ? `${comment.user_id.first_name} ${comment.user_id.last_name}`
           : 'Anonymous',
+        username: comment.user_id?.username || 'anonymous',
         content: comment.comment,
         timestamp: comment.date_created,
         parent_id: comment.parent_id,

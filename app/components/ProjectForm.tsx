@@ -10,6 +10,7 @@ interface ProjectFormProps {
   onSubmit: (formData: any) => void;
   loading: boolean;
   darkMode: boolean;
+  created_by?: { id: string; first_name: string; last_name: string } | null;
 }
 
 // Create a wrapper component for the Autocomplete
@@ -34,7 +35,7 @@ const LocationAutocomplete = ({ value, onChange, onPlaceSelect }: {
   );
 };
 
-export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectFormProps) {
+export default function ProjectForm({ onSubmit, loading, darkMode, created_by = null }: ProjectFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -43,16 +44,40 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
     images: [] as { content: string; type: string; name: string }[],
   });
 
+  const [errors, setErrors] = useState({
+    title: '',
+    description: '',
+    location: '',
+  });
+
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
+  const validateField = (name: string, value: string) => {
+    switch (name) {
+      case 'title':
+        return value.trim() === '' ? 'Project title is required' : '';
+      case 'description':
+        return value.trim() === '' ? 'Project description is required' : '';
+      case 'location':
+        return value.trim() === '' ? 'Project location is required' : '';
+      default:
+        return '';
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    const error = validateField(name, value);
+    setErrors(prev => ({ ...prev, [name]: error }));
   };
 
   const handleDescriptionChange = (html: string) => {
     setFormData((prev) => ({ ...prev, description: html }));
+    const error = validateField('description', html);
+    setErrors(prev => ({ ...prev, description: error }));
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,10 +120,27 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
     const formattedLocation = locationArray.join(', ');
 
     setFormData((prev) => ({ ...prev, location: formattedLocation }));
+    const error = validateField('location', formattedLocation);
+    setErrors(prev => ({ ...prev, location: error }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate all fields
+    const newErrors = {
+      title: validateField('title', formData.title),
+      description: validateField('description', formData.description),
+      location: validateField('location', formData.location),
+    };
+    
+    setErrors(newErrors);
+
+    // Check if there are any errors
+    if (Object.values(newErrors).some(error => error !== '')) {
+      return;
+    }
+
     onSubmit(formData);
   };
 
@@ -115,11 +157,16 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
         <input
           type="text"
           name="title"
-          className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent px-4 py-2.5 transition-colors"
+          className={`mt-1 block w-full rounded-lg border ${
+            errors.title ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+          } bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent px-4 py-2.5 transition-colors`}
           onChange={handleInputChange}
           required
           placeholder="Enter your project title"
         />
+        {errors.title && (
+          <p className="mt-1 text-sm text-red-500 dark:text-red-400">{errors.title}</p>
+        )}
       </div>
 
       {/* Project Image */}
@@ -160,13 +207,18 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Project Description
         </label>
-        <div className="mt-1 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+        <div className={`mt-1 rounded-lg border ${
+          errors.description ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+        } overflow-hidden`}>
           <RichTextEditor
             value={formData.description}
             onChange={handleDescriptionChange}
             darkMode={darkMode}
           />
         </div>
+        {errors.description && (
+          <p className="mt-1 text-sm text-red-500 dark:text-red-400">{errors.description}</p>
+        )}
       </div>
 
       {/* Location */}
@@ -180,6 +232,9 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
             onChange={handleInputChange}
             onPlaceSelect={handlePlaceSelect}
           />
+          {errors.location && (
+            <p className="mt-1 text-sm text-red-500 dark:text-red-400">{errors.location}</p>
+          )}
           <p className="text-xs text-gray-500 dark:text-gray-400">
             You can either select from suggestions or type your own location
           </p>
@@ -201,6 +256,23 @@ export default function ProjectForm({ onSubmit, loading, darkMode }: ProjectForm
           <option value="pending">Pending</option>
         </select>
       </div>
+
+      {/* Project Creator */}
+      {created_by && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Project Creator
+          </label>
+          <div className="flex items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+            <svg className="inline-block w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {created_by.first_name} {created_by.last_name}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Show file errors */}
       {fileErrors.length > 0 && (

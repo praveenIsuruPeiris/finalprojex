@@ -16,6 +16,7 @@ type Project = {
   location: string;
   createdAt: string | null;
   images: { id: string }[];
+  created_by?: { id: string; first_name: string; last_name: string } | null;
 };
 
 export default function ProjectsFeed() {
@@ -31,7 +32,7 @@ export default function ProjectsFeed() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('https://crm.lahirupeiris.com/items/projects?fields=*,images.directus_files_id');
+        const response = await fetch('/api/projects');
         if (!response.ok) throw new Error('Failed to fetch projects');
   
         const data = await response.json();
@@ -42,6 +43,11 @@ export default function ProjectsFeed() {
           status: project.status,
           location: project.location,
           createdAt: project.date_created || project.created_at,
+          created_by: project.created_by ? {
+            id: project.created_by.id,
+            first_name: project.created_by.first_name,
+            last_name: project.created_by.last_name
+          } : null,
           images: (project.images || [])
             .map((item: any) => {
               // Handle both direct file ID and nested structure
@@ -109,7 +115,16 @@ export default function ProjectsFeed() {
             placeholder="Search projects..."
             className="w-full md:w-1/2 p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
-          <Dropdown label={selectedStatus || 'Filter by Status'} className="w-48">
+          <Dropdown 
+            label={selectedStatus || 'Filter by Status'} 
+            className="w-48"
+            color="blue"
+            theme={{
+              floating: {
+                target: "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 border border-gray-300 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+              }
+            }}
+          >
             <Dropdown.Item onClick={() => handleStatusFilter(null)}>All Statuses</Dropdown.Item>
             <Dropdown.Item onClick={() => handleStatusFilter('ongoing')}>Ongoing</Dropdown.Item>
             <Dropdown.Item onClick={() => handleStatusFilter('completed')}>Completed</Dropdown.Item>
@@ -125,7 +140,7 @@ export default function ProjectsFeed() {
         )}
 
         {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6 max-w-[2000px] mx-auto px-4">
           {paginatedResults.map((project) => (
             <ProjectCard key={project.id} {...project} id={String(project.id)} />
           ))}

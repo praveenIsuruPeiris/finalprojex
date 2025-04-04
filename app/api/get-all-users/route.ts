@@ -3,12 +3,14 @@
 // app/api/get-all-users/route.ts
 
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const user = await currentUser();
+    const userId = user?.id;
+    
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
       `${process.env.DIRECTUS_API_URL}/items/users?fields=id,username,first_name,last_name`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DIRECTUS_ADMIN_TOKEN}`,
+          'Authorization': `Bearer ${process.env.DIRECTUS_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
         cache: 'no-store'

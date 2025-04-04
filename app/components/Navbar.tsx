@@ -11,11 +11,13 @@ import {
   useUser
 } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const { user, isSignedIn } = useUser();
+  const router = useRouter();
 
   // Load theme from localStorage
   useEffect(() => {
@@ -34,12 +36,14 @@ export default function Navbar() {
     localStorage.setItem("theme", newMode ? "dark" : "light");
   };
 
+  // Handle sign in and create session
   useEffect(() => {
-    const syncUserWithDirectus = async () => {
+    const createSession = async () => {
       if (!isSignedIn || !user) return;
   
       try {
-        const response = await fetch("/api/sync-user", {
+        // First, sync the user with Directus
+        const syncResponse = await fetch("/api/sync-user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -52,18 +56,50 @@ export default function Navbar() {
           }),
         });
   
-        if (!response.ok) {
-          console.error("❌ Failed to sync user with Directus:", await response.text());
+        if (!syncResponse.ok) {
+          console.error("❌ Failed to sync user with Directus:", await syncResponse.text());
         } else {
-          console.log("✅ User synced with Directus");
+          console.log("✅ User synced successfully with Directus");
+        }
+  
+        // Then create the session
+        const sessionResponse = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clerkId: user.id,
+            email: user.emailAddresses[0]?.emailAddress,
+            username: user.username || user.emailAddresses[0]?.emailAddress.split("@")[0],
+            firstName: user.firstName,
+            lastName: user.lastName,
+            profileImage: user.imageUrl,
+          }),
+        });
+  
+        if (!sessionResponse.ok) {
+          console.error("❌ Failed to create session:", await sessionResponse.text());
+        } else {
+          console.log("✅ Session created successfully");
         }
       } catch (error) {
-        console.error("❌ Error syncing user:", error);
+        console.error("❌ Error in user sync/session creation:", error);
       }
     };
   
-    syncUserWithDirectus();
+    createSession();
   }, [user, isSignedIn]);
+
+  // Handle sign out and clear session
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/session", {
+        method: "DELETE",
+      });
+      router.push("/");
+    } catch (error) {
+      console.error("❌ Error clearing session:", error);
+    }
+  };
   
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">

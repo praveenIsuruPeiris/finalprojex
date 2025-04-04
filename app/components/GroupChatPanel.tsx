@@ -307,7 +307,7 @@ export default function GroupChatPanel({ projectId, closeChat }: GroupChatPanelP
   }, [messages, directusUserId]);
 
   return (
-    <div className={`fixed right-0 top-0 h-screen w-96 bg-white dark:bg-gray-900 shadow-xl flex flex-col transition-all duration-300 ${isPinned ? 'z-50' : 'z-40'}`}>
+    <div className={`fixed right-0 top-0 h-screen w-full sm:w-96 bg-white dark:bg-gray-900 shadow-xl flex flex-col transition-all duration-300 ${isPinned ? 'z-50' : 'z-40'}`}>
       <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4 flex justify-between items-center">
         <div className="flex items-center space-x-3">
           <button
@@ -365,7 +365,7 @@ export default function GroupChatPanel({ projectId, closeChat }: GroupChatPanelP
         {messageList}
       </div>
 
-      <div className="p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800 sticky bottom-0">
         <div className="flex space-x-2">
           <input
             value={newMessage}

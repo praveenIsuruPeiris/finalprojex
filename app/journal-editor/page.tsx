@@ -1,16 +1,19 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import Navbar from '@/app/components/Navbar';
 import Footer from '@/app/components/Footer';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
+import LinkExtension from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
+import { Node } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
 import { uploadFiles } from '../utils/directus.utils';
 import { Button } from 'flowbite-react';
 import { useTheme } from '../theme';
@@ -37,7 +40,7 @@ const editorStyles = `
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     background-color: white;
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror {
     background-color: #1f2937;
@@ -50,7 +53,7 @@ const editorStyles = `
     margin-top: 1.5rem !important;
     margin-bottom: 0.75rem !important;
     line-height: 1.2 !important;
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror h2 {
     color: #f3f4f6;
@@ -61,7 +64,7 @@ const editorStyles = `
     margin-top: 1.25rem !important;
     margin-bottom: 0.5rem !important;
     line-height: 1.3 !important;
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror h3 {
     color: #f3f4f6;
@@ -78,28 +81,35 @@ const editorStyles = `
   }
   .ProseMirror li {
     margin: 0.25rem 0 !important;
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror li {
     color: #e5e7eb;
   }
   .ProseMirror a {
-    color: #2563eb;
-    text-decoration: underline;
-    transition: color 0.2s;
+    color: #2563eb !important;
+    text-decoration: underline !important;
+    font-weight: 500 !important;
+    padding: 0.125rem 0.25rem !important;
+    border-radius: 0.25rem !important;
+    background-color: rgba(37, 99, 235, 0.1) !important;
+    transition: all 0.2s ease !important;
   }
   .dark .ProseMirror a {
-    color: #60a5fa;
+    color: #60a5fa !important;
+    background-color: rgba(96, 165, 250, 0.1) !important;
   }
   .ProseMirror a:hover {
-    color: #1d4ed8;
+    color: #1d4ed8 !important;
+    background-color: rgba(37, 99, 235, 0.2) !important;
   }
   .dark .ProseMirror a:hover {
-    color: #93c5fd;
+    color: #93c5fd !important;
+    background-color: rgba(96, 165, 250, 0.2) !important;
   }
   .ProseMirror p {
     margin: 0.75rem 0 !important;
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror p {
     color: #e5e7eb;
@@ -114,13 +124,13 @@ const editorStyles = `
     filter: brightness(0.9);
   }
   .ProseMirror em {
-    color: #000000;
+    color: #111827;
   }
   .dark .ProseMirror em {
     color: #e5e7eb;
   }
   .ProseMirror strong {
-    color: #000000;
+    color: #111827;
     font-weight: 600;
   }
   .dark .ProseMirror strong {
@@ -134,7 +144,8 @@ interface DirectusUser {
 }
 
 function JournalEditorContent() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
   const { darkMode } = useTheme();
   const searchParams = useSearchParams();
   const journalId = searchParams.get('journalId');
@@ -149,19 +160,64 @@ function JournalEditorContent() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] } }),
-      Image.configure({ inline: true, allowBase64: false }),
-      Link.configure({ openOnClick: false }),
-      Highlight,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+        bold: { HTMLAttributes: { class: 'font-bold' } },
+        italic: { HTMLAttributes: { class: 'italic' } },
+      }),
+      Image.configure({ 
+        inline: true, 
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'rounded-lg max-w-full h-auto',
+        },
+      }),
+      LinkExtension.configure({ 
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-blue-500 hover:text-blue-700 underline',
+        },
+      }),
+      Highlight.configure({
+        HTMLAttributes: {
+          class: 'bg-yellow-200 dark:bg-yellow-800',
+        },
+      }),
+      TextAlign.configure({ 
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center'],
+      }),
     ],
     content: '<p>Start writing your project journal...</p>',
     editorProps: {
       attributes: {
         class: `prose prose-lg focus:outline-none max-w-none ${darkMode ? 'dark:prose-invert' : ''}`,
       },
+      handleDOMEvents: {
+        keydown: (view, event) => {
+          // Prevent default behavior for formatting shortcuts
+          if (event.key === 'b' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            editor?.chain().focus().toggleBold().run();
+            return true;
+          }
+          if (event.key === 'i' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            editor?.chain().focus().toggleItalic().run();
+            return true;
+          }
+          return false;
+        },
+      },
     },
   });
+
+  // Add authentication check
+  useEffect(() => {
+    if (isLoaded && !user) {
+      router.push('/sign-in?redirect_url=' + encodeURIComponent(window.location.href));
+    }
+  }, [isLoaded, user, router]);
 
   // Fetch Directus user ID based on Clerk ID
   useEffect(() => {
@@ -217,10 +273,21 @@ function JournalEditorContent() {
         const { data } = await res.json();
         if (!data) return;
         setTitle(data.title || '');
-        editor.commands.setContent(data.content || '<p></p>');
+        
+        // Process the content to ensure YouTube embeds are properly handled
+        let content = data.content || '<p></p>';
+        
+        // Check if the content contains YouTube embeds that need to be converted
+        if (content.includes('data-youtube') || content.includes('youtube.com/embed')) {
+          // The content already contains YouTube embeds, use it as is
+          editor.commands.setContent(content);
+        } else {
+          // Set the content as is
+          editor.commands.setContent(content);
+        }
       } catch (err) {
         console.error('Error fetching journal:', err);
-        setErrorMsg('Failed to load journal data');
+        setErrorMsg('Failed to load journal data. Please try refreshing the page.');
       }
     };
     fetchJournal();
@@ -319,13 +386,22 @@ function JournalEditorContent() {
       }
       if (journalId) {
         setSuccessMsg('Journal updated successfully!');
-        editor.commands.insertContent('<p><em>Journal updated successfully!</em></p>');
       } else {
         setSuccessMsg('Journal created successfully!');
-        editor.commands.setContent('<p>Journal created successfully!</p>');
+        editor.commands.setContent('<p>Start writing your project journal...</p>');
         setTitle('');
       }
       setInsertedFileIds([]);
+      
+      // Redirect to the journal page after a short delay
+      setTimeout(() => {
+        if (projectId) {
+          // Use window.location for more reliable redirection
+          window.location.href = `/journal/${projectId}`;
+        } else {
+          console.error('No project ID available for redirection');
+        }
+      }, 1000);
     } catch (err) {
       console.error('Error saving journal:', err);
       setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -338,9 +414,18 @@ function JournalEditorContent() {
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       <Navbar />
       <main className="flex-grow max-w-4xl mx-auto p-6 space-y-8 w-full">
-        <h1 className={`text-3xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-black'}`}>
-          {journalId ? 'Edit Journal' : 'Create Journal'}
-        </h1>
+        <div className="flex justify-between items-center">
+          <h1 className={`text-3xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            {journalId ? 'Edit Journal' : 'Create Journal'}
+          </h1>
+          {projectId && (
+            <Link href={`/journal/${projectId}`}>
+              <button className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                Back to Journals
+              </button>
+            </Link>
+          )}
+        </div>
         <div className="space-y-2">
           <input
             type="text"
@@ -348,7 +433,7 @@ function JournalEditorContent() {
             className={`text-4xl font-bold w-full bg-transparent outline-none border-b-2 border-transparent focus:border-blue-500 transition-all ${
               darkMode 
                 ? 'text-white placeholder-gray-400' 
-                : 'text-black placeholder-gray-500'
+                : 'text-gray-900 placeholder-gray-500'
             }`}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -390,7 +475,11 @@ function JournalEditorContent() {
             onClick={handleSave}
             disabled={isSaving}
             gradientDuoTone="purpleToBlue"
-            className="shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all text-white"
+            className={`shadow-lg transition-all ${
+              darkMode 
+                ? 'shadow-blue-500/20 hover:shadow-blue-500/40 text-white' 
+                : 'shadow-blue-500/40 hover:shadow-blue-500/60 text-white font-bold'
+            }`}
           >
             {isSaving ? 'Saving...' : 'Publish Journal'}
           </Button>

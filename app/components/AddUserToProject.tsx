@@ -186,15 +186,7 @@ export default function AddUserToProject({
   return (
     <Modal show={show} onClose={onClose} size="md">
       <Modal.Header className="text-gray-900 dark:text-white flex justify-between items-center">
-        <span>Add User to Project</span>
-        <Button
-          color="gray"
-          size="xs"
-          onClick={onClose}
-          className="hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          ×
-        </Button>
+        <span className="text-xl font-semibold">Add User to Project</span>
       </Modal.Header>
       <Modal.Body>
         <div className="space-y-4">
@@ -275,10 +267,10 @@ export default function AddUserToProject({
                       </div>
                       <Button
                         size="sm"
-                        gradientDuoTone="purpleToBlue"
+                        color="blue"
                         disabled={isLoading}
                         onClick={() => handleAddUser(user.username)}
-                        className="ml-4"
+                        className="ml-4 text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700"
                       >
                         Add
                       </Button>

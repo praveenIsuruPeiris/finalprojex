@@ -17,6 +17,7 @@ type Project = {
   location: string;
   date_created: string;
   images: { id: string }[];
+  created_by?: { id: string; first_name: string; last_name: string; username?: string } | null;
 };
 
 type ProjectLike = {
@@ -69,6 +70,7 @@ export default function ProjectDetails() {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [commentCount, setCommentCount] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Fetch project details
   useEffect(() => {
@@ -76,17 +78,15 @@ export default function ProjectDetails() {
 
     const fetchProject = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects/${projectId}?fields=*,images.directus_files_id`
-        );
+        const response = await fetch(`/api/projects/${projectId}`);
         if (!response.ok) throw new Error('Failed to fetch project');
         
         const data = await response.json();
         console.log('Raw project data:', data);
 
         const transformedProject = {
-          ...data.data,
-          images: (data.data.images || [])
+          ...data,
+          images: (data.images || [])
             .map((item: any) => {
               if (typeof item === 'string') {
                 return { id: item };
@@ -96,7 +96,13 @@ export default function ProjectDetails() {
               }
               return null;
             })
-            .filter((img: any) => img !== null)
+            .filter((img: any) => img !== null),
+          created_by: data.created_by ? {
+            id: data.created_by.id,
+            first_name: data.created_by.first_name,
+            last_name: data.created_by.last_name,
+            username: data.created_by.username
+          } : null
         };
 
         console.log('Transformed project:', transformedProject);
@@ -256,6 +262,32 @@ export default function ProjectDetails() {
     setCurrentIndex(prev => prev === project.images.length - 1 ? 0 : prev + 1);
   };
 
+  // Check if user has admin or editor role
+  const isAdminOrEditor = userRole === 'admin' || userRole === 'editor';
+
+  // Handle share functionality
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: project?.title || 'Project',
+        url: window.location.href,
+      })
+      .catch(err => console.error('Error sharing:', err));
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => alert('Link copied to clipboard!'))
+        .catch(err => console.error('Error copying to clipboard:', err));
+    }
+    setShowMenu(false);
+  };
+
+  // Handle edit functionality
+  const handleEdit = () => {
+    window.location.href = `/profile/manage-projects?edit=${projectId}`;
+    setShowMenu(false);
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -305,7 +337,6 @@ export default function ProjectDetails() {
             {project?.images?.length > 0 && project.images[currentIndex] && (() => {
               const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_API_URL || 'https://crm.lahirupeiris.com';
               const mainImageUrl = `${directusUrl}/assets/${project.images[currentIndex].id}`;
-              console.log("Generated main image URL:", mainImageUrl);
               return (
                 <>
                   <img
@@ -314,12 +345,74 @@ export default function ProjectDetails() {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       console.error('Image failed to load:', mainImageUrl);
-                      // Try without the /assets/ path
                       const alternativeUrl = `${directusUrl}/${project.images[currentIndex].id}`;
-                      console.log('Trying alternative URL:', alternativeUrl);
                       (e.target as HTMLImageElement).src = alternativeUrl;
                     }}
                   />
+                  {/* Like button overlay */}
+                  <button
+                    onClick={handleLike}
+                    className={`absolute bottom-4 right-4 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg transition-all duration-200 ${
+                      isLiked
+                        ? 'bg-red-500 text-white hover:bg-red-600'
+                        : 'bg-gray-900/80 text-white hover:bg-gray-900'
+                    }`}
+                  >
+                    <svg
+                      className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      fill={isLiked ? 'currentColor' : 'none'}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium">{likeCount}</span>
+                  </button>
+                  
+                  {/* Three-dot menu */}
+                  <div className="absolute top-4 right-4">
+                    <button
+                      onClick={() => setShowMenu(!showMenu)}
+                      className="p-2 rounded-full bg-gray-900/60 text-white hover:bg-gray-900 transition-colors"
+                      aria-label="More options"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown menu */}
+                    {showMenu && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700">
+                        {isAdminOrEditor && (
+                          <button
+                            onClick={handleEdit}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Project
+                          </button>
+                        )}
+                        <button
+                          onClick={handleShare}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          Share Project
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
                   {project.images.length > 1 && (
                     <>
                       <button
@@ -343,6 +436,32 @@ export default function ProjectDetails() {
                 </>
               );
             })()}
+            {/* Like button for when there's no image */}
+            {(!project?.images || project.images.length === 0) && (
+              <button
+                onClick={handleLike}
+                className={`absolute bottom-4 right-4 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg transition-all duration-200 ${
+                  isLiked
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-gray-900/80 text-white hover:bg-gray-900'
+                }`}
+              >
+                <svg
+                  className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  fill={isLiked ? 'currentColor' : 'none'}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                <span className="text-sm font-medium">{likeCount}</span>
+              </button>
+            )}
           </div>
 
           {/* Project details */}
@@ -374,54 +493,46 @@ export default function ProjectDetails() {
                     day: 'numeric' 
                   })}
                 </div>
+                
+                {/* Creator information */}
+                {project.created_by && (
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    By{' '}
+                    <Link 
+                      href={`/profile/${project.created_by.username || project.created_by.id}`}
+                      className="ml-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                    >
+                      {project.created_by.first_name} {project.created_by.last_name}
+                    </Link>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                 <Link
                   href={`/journal/${projectId}`}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg w-full sm:w-[180px] transform hover:-translate-y-0.5"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
-                  Project journal
+                  <span>Project journal</span>
                 </Link>
 
                 {userRole && (
                   <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-300 shadow-md hover:shadow-lg w-full sm:w-[180px] transform hover:-translate-y-0.5"
                     onClick={() => setShowChat(!showChat)}
                   >
-                    {showChat ? 'Close Group Chat' : 'Open Group Chat'}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span>{showChat ? 'Close Chat' : 'Open Chat'}</span>
                   </button>
                 )}
-
-                {/* Like Button - Moved to the right */}
-                <div className="ml-auto">
-                  <button
-                    onClick={handleLike}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      isLiked
-                        ? 'bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-100'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <svg
-                      className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`}
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      fill={isLiked ? 'currentColor' : 'none'}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      />
-                    </svg>
-                    <span>{likeCount}</span>
-                  </button>
-                </div>
               </div>
             </div>
 

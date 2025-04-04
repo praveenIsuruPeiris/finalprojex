@@ -7,7 +7,9 @@ import { Button } from 'flowbite-react';
 import ProjectCard from '@/app/components/ProjectCard';
 import Navbar from '@/app/components/Navbar';
 import Footer from '@/app/components/Footer';
+import Pagination from '@/app/components/Pagination';
 import Link from 'next/link';
+import Fuse from 'fuse.js';
 
 interface Project {
   id: string;
@@ -54,6 +56,11 @@ export default function MyProjects() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Project[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Redirect to sign-in page if the user is not signed in
   useEffect(() => {
@@ -153,6 +160,51 @@ export default function MyProjects() {
     }
   };
 
+  // Calculate paginated projects
+  const paginatedProjects = searchQuery 
+    ? searchResults.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : projects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const totalPages = Math.ceil((searchQuery ? searchResults.length : projects.length) / itemsPerPage);
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Configure Fuse.js options
+    const options = {
+      keys: ['title', 'description', 'status', 'location'],
+      threshold: 0.3,
+      includeScore: true
+    };
+    
+    // Create a new Fuse instance
+    const fuse = new Fuse(projects, options);
+    
+    // Perform the search
+    const results = fuse.search(query);
+    
+    // Extract the items from the results
+    const searchResults = results.map(result => result.item);
+    setSearchResults(searchResults);
+  };
+
+  // Reset search when projects change
+  useEffect(() => {
+    if (searchQuery) {
+      handleSearch(searchQuery);
+    }
+  }, [projects]);
+
   if (!isLoaded) return <p className="text-center text-gray-800 dark:text-gray-300">Loading...</p>;
   if (!isSignedIn) return null;
 
@@ -185,6 +237,29 @@ export default function MyProjects() {
           </Link>
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          {isSearching && (
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Found {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+            </p>
+          )}
+        </div>
+
         {projects.length === 0 ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No projects yet</h2>
@@ -194,42 +269,58 @@ export default function MyProjects() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <div key={project.id} className="relative group">
-                <ProjectCard 
-                  {...project} 
-                  createdAt={project.date_created}
-                />
-                <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    project.user_role === 'admin'
-                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                  }`}>
-                    {project.user_role}
-                  </span>
-                  {(project.user_role === 'admin' || project.user_role === 'editor') && (
-                    <Link
-                      href={`/edit-project?id=${project.id}`}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    >
-                      <Button
-                        gradientDuoTone="purpleToBlue"
-                        size="sm"
-                        className="bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-200"
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedProjects.map((project) => (
+                <div key={project.id} className="relative group">
+                  <ProjectCard 
+                    {...project} 
+                    createdAt={project.date_created}
+                  />
+                  <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      project.user_role === 'admin'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    }`}>
+                      {project.user_role}
+                    </span>
+                    {(project.user_role === 'admin' || project.user_role === 'editor') && (
+                      <Link
+                        href={`/edit-project?id=${project.id}`}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                       >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit
-                      </Button>
-                    </Link>
-                  )}
+                        <Button
+                          gradientDuoTone="purpleToBlue"
+                          size="sm"
+                          className="bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-200"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Pagination */}
+            {projects.length > 0 && totalPages > 1 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  startResult={(currentPage - 1) * itemsPerPage + 1}
+                  endResult={Math.min(currentPage * itemsPerPage, projects.length)}
+                  totalResults={projects.length}
+                />
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
       <Footer />

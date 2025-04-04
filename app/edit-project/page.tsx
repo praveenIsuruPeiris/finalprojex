@@ -60,7 +60,7 @@ function EditProjectContent() {
 
   const [formData, setFormData] = useState({
     title: '',
-    status: 'active',
+    status: 'ongoing',
     location: '',
   });
   const [images, setImages] = useState<File[]>([]);
@@ -76,7 +76,7 @@ function EditProjectContent() {
     content: '',
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4 bg-white dark:bg-gray-700 rounded-lg',
+        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4 bg-white dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg',
       },
     },
   });
@@ -110,10 +110,24 @@ function EditProjectContent() {
         setProject(data);
         setFormData({
           title: data.title || '',
-          status: data.status || 'active',
+          status: data.status || 'ongoing',
           location: data.location || '',
         });
-        setExistingImages(data.images || []);
+        
+        // Transform the images data structure
+        const transformedImages = (data.images || [])
+          .map((item: any) => {
+            if (typeof item === 'string') {
+              return { id: item };
+            }
+            if (item.directus_files_id) {
+              return { id: item.directus_files_id.id || item.directus_files_id };
+            }
+            return null;
+          })
+          .filter((img: any) => img !== null);
+        
+        setExistingImages(transformedImages);
         
         if (editor && data.description) {
           editor.commands.setContent(data.description);
@@ -268,9 +282,9 @@ function EditProjectContent() {
                     onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                     className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg"
                   >
-                    <option value="active">Active</option>
+                    <option value="ongoing">Ongoing</option>
                     <option value="completed">Completed</option>
-                    <option value="on-hold">On Hold</option>
+                    <option value="pending">Pending</option>
                   </Select>
                 </div>
 

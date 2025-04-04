@@ -14,13 +14,14 @@ import GoogleMapsWrapper from '../components/GoogleMapsWrapper';
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 
 export default function CreateProjectPage() {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [animationData, setAnimationData] = useState(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ id: string; first_name: string; last_name: string } | null>(null);
 
   useEffect(() => {
     fetch('https://lottie.host/c70fcd40-dfb5-4cc5-a7a8-8a65df1a840f/FRg3oQ54HX.json')
@@ -30,6 +31,31 @@ export default function CreateProjectPage() {
     // Detect dark mode
     setDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
+
+  // Fetch user information
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/user-info');
+        if (!response.ok) throw new Error('Failed to fetch user information');
+        
+        const data = await response.json();
+        setUserInfo({
+          id: data.id,
+          first_name: data.first_name || user.firstName || '',
+          last_name: data.last_name || user.lastName || ''
+        });
+      } catch (err) {
+        console.error('Error fetching user info:', err);
+      }
+    };
+    
+    if (isLoaded && isSignedIn && user) {
+      fetchUserInfo();
+    }
+  }, [isLoaded, isSignedIn, user]);
 
   // Redirect to sign-in page if the user is not signed in
   useEffect(() => {
@@ -106,7 +132,12 @@ export default function CreateProjectPage() {
         {/* Form Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <GoogleMapsWrapper>
-            <ProjectForm onSubmit={handleSubmit} loading={loading} darkMode={darkMode} />
+            <ProjectForm 
+              onSubmit={handleSubmit} 
+              loading={loading} 
+              darkMode={darkMode} 
+              created_by={userInfo}
+            />
           </GoogleMapsWrapper>
         </div>
       </div>
