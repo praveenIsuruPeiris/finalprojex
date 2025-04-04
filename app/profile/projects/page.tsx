@@ -21,6 +21,11 @@ interface Project {
   date_created: string;
   createdAt: string;
   user_role: string;
+  created_by?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
 }
 
 const fetchCurrentUserId = async (clerkId: string): Promise<string | null> => {
@@ -98,7 +103,7 @@ export default function MyProjects() {
           
           // Fetch project details
           const projectsResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects?filter[id][_in]=${projectIds.join(',')}&fields=*,images.directus_files_id`
+            `${process.env.NEXT_PUBLIC_DIRECTUS_API_URL}/items/projects?filter[id][_in]=${projectIds.join(',')}&fields=*,images.directus_files_id,created_by.id,created_by.first_name,created_by.last_name`
           );
           
           if (projectsResponse.ok) {
@@ -111,6 +116,11 @@ export default function MyProjects() {
                 ...project,
                 user_role: membership?.role || 'member',
                 date_created: project.date_created || project.created_at,
+                created_by: project.created_by ? {
+                  id: project.created_by.id,
+                  first_name: project.created_by.first_name,
+                  last_name: project.created_by.last_name
+                } : null,
                 images: (project.images || [])
                   .map((item: any) => {
                     // Handle both direct file ID and nested structure

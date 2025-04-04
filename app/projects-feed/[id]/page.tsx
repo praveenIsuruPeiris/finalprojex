@@ -496,14 +496,11 @@ export default function ProjectDetails() {
                 
                 {/* Creator information */}
                 {project.created_by && (
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    By{' '}
-                    <Link 
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500 dark:text-gray-400">Created by</span>
+                    <Link
                       href={`/profile/${project.created_by.username || project.created_by.id}`}
-                      className="ml-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {project.created_by.first_name} {project.created_by.last_name}
                     </Link>

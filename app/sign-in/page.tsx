@@ -1,10 +1,10 @@
 'use client';
 
 import { SignIn, useUser } from '@clerk/nextjs';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function SignInPage() {
+function SignInContent() {
   const { isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,5 +64,17 @@ export default function SignInPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
       <SignIn routing="hash" />
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">Loading...</div>
+      </div>
+    }>
+      <SignInContent />
+    </Suspense>
   );
 }
